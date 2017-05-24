@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010"> 
+  
+  <Type Name="aVect&lt;*&gt;">
+    <DisplayString>{{count = {count}}}</DisplayString>
+    <Expand>
+      <Item Name="count" ExcludeView="simple">count</Item>
+      <Item Name="allocatedCount" ExcludeView="simple">allocatedCount</Item>
+        <ArrayItems>
+            <Size>count</Size>
+            <ValuePointer>pData</ValuePointer>
+        </ArrayItems>
+    </Expand>
+  </Type>
+
+  <Type Name="mVect&lt;*&gt;">
+    <DisplayString>{{count = {count}}}</DisplayString>
+    <Expand>
+      <Item Name="count" ExcludeView="simple">count</Item>
+      <Item Name="allocatedCount" ExcludeView="simple">allocatedCount</Item>
+      <Item Name="ref" ExcludeView="simple">ref</Item>
+      <ArrayItems>
+        <Size>count</Size>
+        <ValuePointer>pData</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+
+  <Type Name="aVect&lt;char,1,0,0,0,0,0&gt;">
+    <DisplayString Condition="count != 0">{pData,s}</DisplayString>
+    <DisplayString Condition="count == 0">{""""}</DisplayString>
+    <Expand>
+      <Item Name="data" ExcludeView="simple">pData</Item>
+      <Item Name="count" ExcludeView="simple">count</Item>
+      <Item Name="allocatedCount" ExcludeView="simple">allocatedCount</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="mVect&lt;char,1,0,0,0,0&gt;">
+    <DisplayString Condition="count != 0">{pData,s}</DisplayString>
+    <DisplayString Condition="count == 0">{""""}</DisplayString>
+    <Expand>
+      <Item Name="data" ExcludeView="simple">pData</Item>
+      <Item Name="count" ExcludeView="simple">count</Item>
+      <Item Name="allocatedCount" ExcludeView="simple">allocatedCount</Item>
+      <Item Name="ref" ExcludeView="simple">ref</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="aVect&lt;wchar_t,1,0,0,0,0,0&gt;">
+    <DisplayString Condition="count != 0">{pData,su}</DisplayString>
+    <DisplayString Condition="count == 0">{""""}</DisplayString>
+    <Expand>
+      <Item Name="data" ExcludeView="simple">pData</Item>
+      <Item Name="count" ExcludeView="simple">count</Item>
+      <Item Name="allocatedCount" ExcludeView="simple">allocatedCount</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="mVect&lt;wchar_t,1,0,0,0,0&gt;">
+    <DisplayString Condition="count != 0">{pData,su}</DisplayString>
+    <DisplayString Condition="count == 0">{""""}</DisplayString>
+    <Expand>
+      <Item Name="data" ExcludeView="simple">pData</Item>
+      <Item Name="count" ExcludeView="simple">count</Item>
+      <Item Name="allocatedCount" ExcludeView="simple">allocatedCount</Item>
+      <Item Name="ref" ExcludeView="simple">ref</Item>
+    </Expand>
+  </Type>
+  
+  <Type Name="MagicPointer&lt;*,*&gt;">
+    <DisplayString>{*ptr}</DisplayString>
+    <Expand>
+      <Item Name="[ptr]">ptr</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="MagicTarget&lt;*,1&gt;">
+    <DisplayString>{value}</DisplayString>
+  </Type>
+
+  <Type Name="CharPointerCore&lt;char&gt;">
+    <DisplayString>{pData,s}</DisplayString>
+    <Expand>
+      <Item Name="data" ExcludeView="simple">pData</Item>
+    </Expand>
+  </Type>
+  
+  <Type Name="CharPointerCore&lt;wchar_t&gt;">
+    <DisplayString>{pData,su}</DisplayString>
+    <Expand>
+      <Item Name="data" ExcludeView="simple">pData</Item>
+    </Expand>
+  </Type>
+  
+</AutoVisualizer>
