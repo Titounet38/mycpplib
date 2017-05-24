@@ -194,7 +194,7 @@ public:
 	AxisClass& AutoFit(bool colorAutoFit = true, bool forceAdjustZoom = false);
 	AxisClass& Clear(void);
 	AxisClass& xLim(double xMin, double xMax, bool forceAdjustZoom = false);
-	AxisClass& yLim(double yMin, double yMax, bool forceAdjustZoom = false);
+	AxisClass& yLim(double yMin, double yMax, bool forceAdjustZoom = false, int iAxis = 0);
 	AxisClass& cLim(double cMin, double cMax);
 	AxisClass& yMin(double yMin, bool forceAdjustZoom = false);
 	AxisClass& yMax(double yMax, bool forceAdjustZoom = false);
@@ -202,8 +202,8 @@ public:
 	AxisClass& xMax(double xMax, bool forceAdjustZoom = false);
 	AxisClass& cMin(double cMin);
 	AxisClass& cMax(double cMax);
-	double yMin(bool orig = true);
-	double yMax(bool orig = true);
+	double yMin(bool orig = true, int iAxis = 0);
+	double yMax(bool orig = true, int iAxis = 0);
 	double xMin(bool orig = true);
 	double xMax(bool orig = true);
 	double cMin(bool orig = true);

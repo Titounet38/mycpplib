@@ -711,13 +711,16 @@ void DbgStr(wchar_t* formatString, ...) {
 	OutputDebugStringW(&tmp[0]);
 }
 
+WinCriticalSection g_SplitPathW_cs;
+
 //not thread safe
 template <class Char>
 void SplitPath_Core(const Char * src, Char ** pDrive, Char ** pPath, Char ** pFName, Char ** pExt) {
 
-	//useless critical section, the problem is that the returned pointers point to static buffer
-	//static WinCriticalSection cs;
-	//ScopeCriticalSection<WinCriticalSection> guard(cs);
+	static WinCriticalSection cs;
+	AutoCriticalSection acs(cs, false);
+
+	MY_ASSERT(acs.TryEnter());	//assert no other thread is running this function
 
 	if (!src) {
 		if (pDrive) *pDrive = nullptr;
@@ -934,8 +937,8 @@ mVect< mVect<wchar_t> > WalkBackPathForFile(
 }
 
 mVect< mVect<wchar_t> > WalkForwardPathForFile(
-							aVect<wchar_t>& path, 
-							aVect<wchar_t>& fileName, 
+							const aVect<wchar_t>& path, 
+							const aVect<wchar_t>& fileName, 
 							mVect< mVect<wchar_t> > * folderEnds,
 							bool stopAtFirst,
 							bool includeAll) {
@@ -947,9 +950,9 @@ mVect< mVect<wchar_t> > WalkForwardPathForFile(
 }
 
 mVect< mVect<wchar_t> > WalkForwardPathForFile(
-							aVect<wchar_t>& path, 
-							aVect<wchar_t>& fileName1, 
-							aVect<wchar_t>& fileName2, 
+							const aVect<wchar_t>& path, 
+							const aVect<wchar_t>& fileName1, 
+							const aVect<wchar_t>& fileName2, 
 							mVect< mVect<wchar_t> > * folderEnds,
 							bool stopAtFirst,
 							bool includeAll) {
@@ -961,8 +964,8 @@ mVect< mVect<wchar_t> > WalkForwardPathForFile(
 }
 
 mVect< mVect<wchar_t> > WalkForwardPathForFile(
-							aVect<wchar_t>& path, 
-							aVect< aVect<wchar_t> > & fileNames, 
+							const aVect<wchar_t>& path, 
+							const aVect< aVect<wchar_t> > & fileNames, 
 							mVect< mVect<wchar_t> > * folderEnds,
 							bool stopAtFirst,
 							bool includeAll) {
@@ -989,8 +992,7 @@ mVect< mVect<wchar_t> > WalkForwardPathForFile(
 			alreadySearched.Pop();
 			if (!hStack) break;
 			SplitPathW(curFolder, nullptr, &curFolder, nullptr, nullptr);
-		}
-		else {
+		} else {
 			HANDLE result = FindFirstFileW(buffer.sprintf(L"%s\\*", (wchar_t*)curFolder), &f);
 			if (result == INVALID_HANDLE_VALUE) {
 				if (GetLastError() == ERROR_NO_MORE_FILES) result = 0;
@@ -1086,42 +1088,45 @@ LRESULT APIENTRY EditSubclassProc(
 
 	switch (message) {
 
-	case WM_DESTROY: {
-							if (!g_wpOrigStaticProc) MY_ERROR("ici");
-							SetWindowLongPtrA(hWnd, GWLP_WNDPROC, (LONG_PTR)g_wpOrigStaticProc);
-							break;
-	}
-	case WM_COMMAND: {
+		case WM_DESTROY: {
+			if (!g_wpOrigStaticProc) MY_ERROR("ici");
+			SetWindowLongPtrA(hWnd, GWLP_WNDPROC, (LONG_PTR)g_wpOrigStaticProc);
+			break;
+		}
+		case WM_NOTIFY:
+		case WM_COMMAND: {
 
-							int code = HIWORD(wParam);
+			SendMessage(GetParent(hWnd), message, wParam, lParam);
 
-							switch (code) {
+			//int code = HIWORD(wParam);
 
-							case EN_KILLFOCUS:
-							case BN_CLICKED:
-								/*char parentWindowClassName[500];
-								char parentWindowTitle[500];
-								char windowClassName[500];
-								char windowTitle[500];
-								GetClassName(hWnd, windowClassName, sizeof(windowClassName));
-								GetWindowText(hWnd, windowTitle, sizeof(windowTitle));
-								GetClassName(GetParent(hWnd), parentWindowClassName, sizeof(parentWindowClassName));
-								GetWindowText(GetParent(hWnd), parentWindowTitle, sizeof(parentWindowTitle));
-								DbgStr("\n\nWindow 0x%p, class \"%s\", title \"%s\",\n"
-								"Sending to \nWindow 0x%p, class \"%s\", title \"%s\",\n"
-								"message %d, wParam = 0x%p, lParam = 0x%p\n",
-								hWnd, windowClassName, windowTitle,
-								GetParent(hWnd), parentWindowClassName,
-								parentWindowTitle,
-								message, wParam, lParam);*/
+			//switch (code) {
 
-								SendMessage(GetParent(hWnd), message, wParam, lParam);
+			//	case EN_KILLFOCUS:
+			//	case BN_CLICKED:
+			//		/*char parentWindowClassName[500];
+			//		char parentWindowTitle[500];
+			//		char windowClassName[500];
+			//		char windowTitle[500];
+			//		GetClassName(hWnd, windowClassName, sizeof(windowClassName));
+			//		GetWindowText(hWnd, windowTitle, sizeof(windowTitle));
+			//		GetClassName(GetParent(hWnd), parentWindowClassName, sizeof(parentWindowClassName));
+			//		GetWindowText(GetParent(hWnd), parentWindowTitle, sizeof(parentWindowTitle));
+			//		DbgStr("\n\nWindow 0x%p, class \"%s\", title \"%s\",\n"
+			//		"Sending to \nWindow 0x%p, class \"%s\", title \"%s\",\n"
+			//		"message %d, wParam = 0x%p, lParam = 0x%p\n",
+			//		hWnd, windowClassName, windowTitle,
+			//		GetParent(hWnd), parentWindowClassName,
+			//		parentWindowTitle,
+			//		message, wParam, lParam);*/
 
-								break;
-							}
+			//		SendMessage(GetParent(hWnd), message, wParam, lParam);
 
-							break;
-	}
+			//		break;
+			//}
+
+			//break;
+		}
 	}
 
 	return CallWindowProc(
@@ -1181,6 +1186,7 @@ HWND PutThere(HWND hParent, const wchar_t * className, const wchar_t * str, int 
 
 	DWORD exStyle, style;
 	const wchar_t * realClasseName = nullptr;
+	const char * realClasseNameA = nullptr;
 
 	int x, y;
 	HWND hWnd = hParent;
@@ -1239,7 +1245,6 @@ HWND PutThere(HWND hParent, const wchar_t * className, const wchar_t * str, int 
 		exStyle = NULL/*WS_EX_CONTROLPARENT*/,
 		style = WS_CHILD | /*SS_SUNKEN*//*SS_BLACKFRAME*/SS_ETCHEDFRAME | WS_VISIBLE,// | SS_EDITCONTROL,
 		realClasseName = L"STATIC";
-
 	else if (_wcsicmp(className, L"OuterFrame") == 0)
 		//hWnd = hParent,
 		exStyle = NULL/*WS_EX_CONTROLPARENT*/,
@@ -1269,18 +1274,23 @@ HWND PutThere(HWND hParent, const wchar_t * className, const wchar_t * str, int 
 			0, sz.cy / 2,
 			0, PUTTHERE_INTO);
 
-
 		hLabel = PutThere(hOuterFrame, L"Label", str, sz.cx, sz.cy, 12, 0, 0, PUTTHERE_INTO);
 
 		return hInnerFrame;
 	}
+	else if (_wcsicmp(className, L"ListView") == 0) 
+		//hWnd = hParent,
+		exStyle = NULL/*WS_EX_CONTROLPARENT*/,
+		style = WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_EDITLABELS,
+		realClasseName = WC_LISTVIEWW,
+		realClasseNameA = WC_LISTVIEWA;
 	else MY_ERROR("Window classe inconnue");//return NULL;
 
 	style |= additionalStyle;
 	exStyle |= additionalStyleEx;
 
 
-	HWND hRet = CreateWindowExW(
+	HWND hRet = /*wide ? */CreateWindowExW(
 		/*dwExStyle*/     exStyle,
 		/*lpClassName*/   realClasseName,
 		/*lpWindowsName*/ str,
@@ -1289,7 +1299,17 @@ HWND PutThere(HWND hParent, const wchar_t * className, const wchar_t * str, int 
 		/*hWndParent*/	  hWnd,
 		/*hMenu*/         (HMENU)index,
 		/*hInstance*/     g_hInst,
-		/*lpParam*/       ptr);
+		/*lpParam*/       ptr);// :
+	//CreateWindowExA(
+	//	/*dwExStyle*/     exStyle,
+	//	/*lpClassName*/   realClasseNameA,
+	//	/*lpWindowsName*/ xFormat("%S", str),
+	//	/*dwStyle*/       style,
+	//	/*Pos*/           x, y, width, height,
+	//	/*hWndParent*/	  hWnd,
+	//	/*hMenu*/         (HMENU)index,
+	//	/*hInstance*/     g_hInst,
+	//	/*lpParam*/       ptr);
 
 	SetWindowFont(hRet, hFont, 1);
 
@@ -1299,7 +1319,7 @@ HWND PutThere(HWND hParent, const wchar_t * className, const wchar_t * str, int 
 			g_wpOrigStaticProc = (WNDPROC)SetWindowLongPtrW(hRet, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
 		}
 		else {
-			if (g_wpOrigStaticProc != (WNDPROC)SetWindowLongPtrW(hRet, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc)) MY_ERROR("ici là");
+			if (g_wpOrigStaticProc != (WNDPROC)SetWindowLongPtrW(hRet, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc)) MY_ERROR("ici l\E0");
 		}
 	}
 	else if (_wcsicmp(className, L"ComboBox") == 0)  {
@@ -1353,7 +1373,7 @@ HWND CreateToolTipWindow(int additionalStyles) {
 	HWND toolTipHwnd = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS,
 		NULL, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP | additionalStyles,
 		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-		NULL, NULL, GetModuleHandle(NULL), NULL);
+		NULL, NULL, GetCurrentModuleHandle(), NULL);
 
 	WIN32_SAFE_CALL(SetWindowPos(toolTipHwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE));
 
@@ -1534,24 +1554,38 @@ void MyPrintWindow(HWND h) {
 	//if (pd.hDevNames) free(pd.hDevNames);
 }
 
+HINSTANCE GetCurrentModuleHandle() {
+
+	static const wchar_t s_empty[] = L"";
+
+	auto flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+
+	HINSTANCE hInstance;
+
+	if (!GetModuleHandleExW(flags, s_empty, &hInstance)) {
+		MY_ERROR("GetCurrentModule failed");
+	}
+
+	return hInstance;
+}
 
 WNDCLASSW MyRegisterClass(WNDPROC WinProc, const wchar_t * className) {
 
 	HINSTANCE hInstance;
 
-	static bool once;
+	//static bool once;
 
 	WNDCLASSW wndclass = { 0 };
-	hInstance = GetModuleHandleW(NULL);
+	hInstance = GetCurrentModuleHandle();
 
-	if (!once) {
-		once = true;
-		if (0 == GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, NULL, &hInstance)) {
-			MessageBoxA(NULL, "GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_PIN) Failed!", "", MB_SERVICE_NOTIFICATION);
-		}
-	}
+	//if (!once) {
+	//	once = true;
+	//	if (0 == GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, NULL, &hInstance)) {
+	//		MessageBoxA(NULL, "GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_PIN) Failed!", "", MB_SERVICE_NOTIFICATION);
+	//	}
+	//}
 
-	if (GetClassInfoW(GetModuleHandleW(NULL), className, &wndclass)) {
+	if (GetClassInfoW(GetCurrentModuleHandle(), className, &wndclass)) {
 		MessageBoxA(NULL, "Class already exist", "", MB_SERVICE_NOTIFICATION);
 	} else {
 
@@ -1638,8 +1672,8 @@ aVect<wchar_t> GetWin32ErrorDescriptionLocal(DWORD systemErrorCode, bool appendE
 
 
 HWND MyCreateWindow(
-	wchar_t * className,
-	wchar_t * strTitle,
+	const wchar_t * className,
+	const wchar_t * strTitle,
 	int x, int y,
 	int nX, int nY,
 	DWORD style,
@@ -1651,7 +1685,7 @@ HWND MyCreateWindow(
 	static bool initialized = 0;
 	HWND hWnd;
 
-	HINSTANCE hInstance = GetModuleHandleW(NULL);
+	HINSTANCE hInstance = GetCurrentModuleHandle();
 
 	if (parent) style |= WS_CHILD;
 
@@ -1675,8 +1709,8 @@ HWND MyCreateWindow(
 }
 
 HWND MyCreateWindow(
-	char * className,
-	char * strTitle,
+	const char * className,
+	const char * strTitle,
 	int x, int y,
 	int nX, int nY,
 	DWORD style,
@@ -1690,8 +1724,8 @@ HWND MyCreateWindow(
 
 HWND MyCreateWindowEx(
 	DWORD exStyle,
-	wchar_t * className, 
-	wchar_t * strTitle,
+	const wchar_t * className, 
+	const wchar_t * strTitle,
 	int x, int y,
 	int nX, int nY,
 	DWORD style,
@@ -1703,7 +1737,7 @@ HWND MyCreateWindowEx(
 	static bool initialized = 0;
 	HWND hWnd;
 
-	HINSTANCE hInstance = GetModuleHandle(NULL);
+	HINSTANCE hInstance = GetCurrentModuleHandle();
 
 	if (parent) style |= WS_CHILD;
 
@@ -1735,8 +1769,8 @@ HWND MyCreateWindowEx(
 
 HWND MyCreateWindowEx(
 	DWORD exStyle,
-	char * className,
-	char * strTitle,
+	const char * className,
+	const char * strTitle,
 	int x, int y,
 	int nX, int nY,
 	DWORD style,
@@ -2073,7 +2107,7 @@ aVect<char> BrowseForFolder_old(const char * path, const char *title, RECT *plac
 	return retVal;
 }
 
-//Mesure du "temps processeur" écoulé
+//Mesure du "temps processeur" \E9coul\E9
 double tic(void) {
 	SYSTEMTIME systemTimeNow;
 	__int64 fileTimeNow;
@@ -2087,7 +2121,7 @@ double tic(void) {
 double toc(double t) { double s = tic(); return (s - t); }
 
 
-//Retourne le temps CPU KernelMode utilisé (en secondes)
+//Retourne le temps CPU KernelMode utilis\E9 (en secondes)
 double CPU_KernelTic(void) {
 	__int64 lpCreationTime, lpExitTime, lpKernelTime, lpUserTime;
 	GetProcessTimes(GetCurrentProcess(), (LPFILETIME)&lpCreationTime, (LPFILETIME)&lpExitTime, (LPFILETIME)&lpKernelTime, (LPFILETIME)&lpUserTime);
@@ -2095,7 +2129,7 @@ double CPU_KernelTic(void) {
 	return (double)((__int64)lpKernelTime) / 1e7;
 }
 
-//Retourne le temps CPU KernelMode utilisé depuis CPU_KernelTic (en secondes)
+//Retourne le temps CPU KernelMode utilis\E9 depuis CPU_KernelTic (en secondes)
 double CPU_KernelToc(double kernelTic) {
 	__int64 lpCreationTime, lpExitTime, lpKernelTime, lpUserTime;
 	GetProcessTimes(GetCurrentProcess(), (LPFILETIME)&lpCreationTime, (LPFILETIME)&lpExitTime, (LPFILETIME)&lpKernelTime, (LPFILETIME)&lpUserTime);
@@ -2103,7 +2137,7 @@ double CPU_KernelToc(double kernelTic) {
 	return (double)((__int64)lpKernelTime) / 1e7 - kernelTic;
 }
 
-//Retourne le temps CPU UserMode utilisé (en secondes)
+//Retourne le temps CPU UserMode utilis\E9 (en secondes)
 double CPU_UserTic(void) {
 	__int64 lpCreationTime, lpExitTime, lpKernelTime, lpUserTime;
 	GetProcessTimes(GetCurrentProcess(), (LPFILETIME)&lpCreationTime, (LPFILETIME)&lpExitTime, (LPFILETIME)&lpKernelTime, (LPFILETIME)&lpUserTime);
@@ -2111,7 +2145,7 @@ double CPU_UserTic(void) {
 	return (double)((__int64)lpUserTime) / 1e7;
 }
 
-//Retourne le temps CPU UserMode utilisé depuis CPU_UserTic (en secondes)
+//Retourne le temps CPU UserMode utilis\E9 depuis CPU_UserTic (en secondes)
 double CPU_UserToc(double userTic) {
 	__int64 lpCreationTime, lpExitTime, lpKernelTime, lpUserTime;
 	GetProcessTimes(GetCurrentProcess(), (LPFILETIME)&lpCreationTime, (LPFILETIME)&lpExitTime, (LPFILETIME)&lpKernelTime, (LPFILETIME)&lpUserTime);
@@ -2231,7 +2265,7 @@ SIZE TextSize(HWND hWnd, const wchar_t * str) {
 	return sz;
 }
 
-int TextWidth(HWND hWnd, const wchar_t * str, bool accountForLineFeeds = true) {
+int TextWidth(HWND hWnd, const wchar_t * str, bool accountForLineFeeds) {
 	
 	aVect<wchar_t> buffer;
 
@@ -2249,7 +2283,7 @@ int TextWidth(HWND hWnd, const wchar_t * str, bool accountForLineFeeds = true) {
 	return TextSize(hWnd, str).cx;
 }
 
-int TextHeight(HWND hWnd, const wchar_t * str, bool accountForLineFeeds = true) {
+int TextHeight(HWND hWnd, const wchar_t * str, bool accountForLineFeeds) {
 	if (!str) return 0;
 	const wchar_t * found, *beginSearch = str;
 	
@@ -2556,7 +2590,7 @@ LRESULT CALLBACK InputBoxWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 }
 
 void InputBox_UnregisterWndClass() {
-	UnregisterClassW(L"InputBox", GetModuleHandleW(NULL));
+	UnregisterClassW(L"InputBox", GetCurrentModuleHandle());
 }
 
 void InputBoxCore(
@@ -3157,7 +3191,7 @@ void RedrawWindow(HWND hWnd) {
 
 void AutoFitWindowForChildren(HWND hWnd, bool vertical, bool horizontal) {
 
-	if (!vertical && !horizontal) MY_ERROR("Are you kidding me ?");
+	MY_ASSERT(vertical || horizontal);
 
 	RECT maxRect, origRect;
 
@@ -3223,7 +3257,7 @@ DWORD WINAPI PathWatcher(LPVOID lpParameter) {
 
 		if (!bytesReturned) {
 			//if (GetLastError() == ERROR_SUCCESS) {
-				//auto str = xFormat(L"Elapsed µs: %g", chronoRetry.GetMicroSeconds());
+				//auto str = xFormat(L"Elapsed \B5s: %g", chronoRetry.GetMicroSeconds());
 				//wchar_t locBuf[1024];
 				//GetModuleFileNameW(NULL, locBuf, sizeof locBuf);
 				//SplitPathW(locBuf, nullptr, nullptr, &fileName, nullptr);
@@ -3329,7 +3363,7 @@ void DeleteDirectory(wchar_t * directory) {
 
 HICON CreateIconFromFile(const wchar_t * file) {
 
-	HBITMAP hBitmap = (HBITMAP)LoadImageW(GetModuleHandle(NULL),
+	HBITMAP hBitmap = (HBITMAP)LoadImageW(GetCurrentModuleHandle(),
 		file, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 
 	if (!hBitmap) return NULL;
@@ -3414,6 +3448,8 @@ VerboseLevelGuard::~VerboseLevelGuard() {
 
 
 char * strstr_caseInsensitive(const char * str, const char * subStr) {
+
+	if (!str || !subStr) return nullptr;
 
 	static WinCriticalSection cs;
 
@@ -4091,6 +4127,17 @@ HTREEITEM MyTreeView_InsertItem(
 	return (HTREEITEM)SendMessageW(hTree, TVM_INSERTITEMW, 0, (LPARAM)&ins);
 }
 
+void MyTreeView_RemoveCheckBox(HWND hTreeView, HTREEITEM hNode) {
+
+	TVITEMW tvi;
+	tvi.hItem = hNode;
+	tvi.mask = TVIF_STATE;
+	tvi.stateMask = TVIS_STATEIMAGEMASK;
+	tvi.state = 0;
+
+	SAFE_CALL(SendMessageW(hTreeView, TVM_SETITEM, NULL, (LPARAM)&tvi));
+}
+
 
 void * MyTreeView_GetItemParam(HWND hWnd, HTREEITEM hItem) {
 
@@ -4226,3 +4273,65 @@ bool FileExists(const char * szPath) {
 	return (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
+void MyGetWindowText(aVect<wchar_t> & str, HWND hWnd) {
+	auto l = GetWindowTextLengthW(hWnd) + 5;
+	if (l) {
+		str.Redim(l);
+		GetWindowTextW(hWnd, str.GetDataPtr(), l);
+	} else {
+		str.Erase();
+	}
+}
+
+aVect<wchar_t> MyGetWindowText(HWND hWnd) {
+	aVect<wchar_t> retVal;
+	MyGetWindowText(retVal, hWnd);
+	return retVal;
+}
+
+void ListBox_MyGetText(aVect<wchar_t> str, HWND hListBox) {
+	str.Erase();
+	auto curSel = ListBox_GetCurSel(hListBox);
+	if (curSel == LB_ERR) return;
+	auto count = ListBox_GetTextLen(hListBox, curSel) + 5;
+	str.Redim(count);
+	ListBox_GetText(hListBox, curSel, str.GetDataPtr());
+}
+
+aVect<wchar_t> ListBox_MyGetText(HWND hListBox) {
+	auto curSel = ListBox_GetCurSel(hListBox);
+	if (curSel == LB_ERR) return aVect<wchar_t>();
+	auto count = ListBox_GetTextLen(hListBox, curSel) + 5;
+	aVect<wchar_t> text(count);
+	ListBox_GetText(hListBox, curSel, text.GetDataPtr());
+	return text;
+}
+
+void CopyToClipBoard(const aVect<wchar_t> & str) {
+
+	OpenClipboard(NULL);
+
+	HGLOBAL clipbuffer;
+	wchar_t * buf;
+	EmptyClipboard();
+	clipbuffer = GlobalAlloc(GMEM_DDESHARE, str.Count() * sizeof(wchar_t));
+	buf = (wchar_t*)GlobalLock(clipbuffer);
+	wcscpy(buf, LPWSTR(&str[0]));
+	GlobalUnlock(clipbuffer);
+	SetClipboardData(CF_UNICODETEXT, clipbuffer);
+	CloseClipboard();
+
+}
+
+void AdjustWindowSizeForText(HWND hWnd, bool adjust_width, bool adjust_height) {
+
+	auto txt    = MyGetWindowText(hWnd);
+
+	auto r = GetRect(hWnd);
+
+	auto width  = adjust_width  ? TextWidth(hWnd, txt)  + 4 : r.right - r.left;
+	auto height = adjust_height ? TextHeight(hWnd, txt) + 2 : r.bottom - r.top;
+	
+	SetWindowPos(hWnd, NULL, 0, 0, width, height, SWP_NOMOVE);
+
+}

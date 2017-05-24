@@ -100,23 +100,23 @@ DWORD WinKbHit();
 BOOL CALLBACK EnumFunc(HWND hWnd, LPARAM lParam);
 
 mVect< mVect<wchar_t> > WalkForwardPathForFile(
-	aVect<wchar_t>& path,
-	aVect< aVect<wchar_t> >& fileNames,
+	const aVect<wchar_t>& path,
+	const aVect< aVect<wchar_t> >& fileNames,
 	mVect< mVect<wchar_t> > * folderEnds = nullptr,
 	bool stopAtFirst = false,
 	bool includeAll = false);
 
 mVect< mVect<wchar_t> > WalkForwardPathForFile(
-	aVect<wchar_t>& path,
-	aVect<wchar_t>& fileName,
+	const aVect<wchar_t>& path,
+	const aVect<wchar_t>& fileName,
 	mVect< mVect<wchar_t> > * folderEnds = nullptr,
 	bool stopAtFirst = false,
 	bool includeAll = false);
 
 mVect< mVect<wchar_t> > WalkForwardPathForFile(
-	aVect<wchar_t>& path,
-	aVect<wchar_t>& fileName1,
-	aVect<wchar_t>& fileName2,
+	const aVect<wchar_t>& path,
+	const aVect<wchar_t>& fileName1,
+	const aVect<wchar_t>& fileName2,
 	mVect< mVect<wchar_t> > * folderEnds = nullptr,
 	bool stopAtFirst = false,
 	bool includeAll = false);
@@ -207,12 +207,12 @@ DEFINE_SPLITPATH_3(void, T1, T2, T3, aVect<char>, T1, T2, T3, void, char*, char*
 #undef DEFINE_SPLITPATH_2
 #undef DEFINE_SPLITPATH_3
 
+extern WinCriticalSection g_SplitPathW_cs;
+
 template <class T1, class T2, class T3, class T4, class T5>
 void SplitPathW(T1 & src, T2 * pDrive, T3 * pPath, T4 * pFName, T5 * pExt) {
 
-	static WinCriticalSection cs;
-
-	Critical_Section(cs) {
+	Critical_Section(g_SplitPathW_cs) {
 
 		wchar_t * _pDrive = nullptr, *_pPath = nullptr, *_pFName = nullptr, *_pExt = nullptr;
 
@@ -318,6 +318,9 @@ int MyMessageBox(wchar_t* formatString, ...);
 int MyMessageBox(DWORD style, char* formatString, ...);
 int MyMessageBox(HWND hWnd, DWORD style, char* formatString, ...);
 
+int TextWidth(HWND hWnd, const wchar_t * str, bool accountForLineFeeds = true);
+int TextHeight(HWND hWnd, const wchar_t * str, bool accountForLineFeeds = true);
+
 void StopAllOtherThreads(bool resume = false);
 void StopAllThreadsBut(DWORD threadId, bool resume = false);
 	
@@ -377,7 +380,8 @@ aVect<wchar_t> GetWin32ErrorDescription(DWORD systemErrorCode, bool appendErrorC
 aVect<wchar_t> GetWin32ErrorDescriptionLocal(DWORD systemErrorCode, bool appendErrorCode = true);
 
 WNDCLASSW MyRegisterClass(LRESULT(CALLBACK *WinProc)(HWND, UINT, WPARAM, LPARAM), const wchar_t * classTitle);
-HWND MyCreateWindow(char * classTitle, char * strTitle,
+HINSTANCE GetCurrentModuleHandle();
+HWND MyCreateWindow(const char * classTitle, const char * strTitle,
 	int x = CW_USEDEFAULT, int y = CW_USEDEFAULT,
 	int nX = CW_USEDEFAULT, int nY = CW_USEDEFAULT,
 	DWORD style = WS_OVERLAPPEDWINDOW,
@@ -388,7 +392,7 @@ HWND MyCreateWindow(char * classTitle, char * strTitle,
 
 HWND MyCreateWindowEx(
 	DWORD exStyle,
-	char * classTitle, char * strTitle,
+	const char * classTitle, const char * strTitle,
 	int x = CW_USEDEFAULT, int y = CW_USEDEFAULT,
 	int nX = CW_USEDEFAULT, int nY = CW_USEDEFAULT,
 	DWORD style = WS_OVERLAPPEDWINDOW,
@@ -397,7 +401,7 @@ HWND MyCreateWindowEx(
 	void * data = NULL,
 	int SWP_FLAGS = SW_SHOW);
 
-HWND MyCreateWindow(wchar_t * classTitle, wchar_t * strTitle,
+HWND MyCreateWindow(const wchar_t * classTitle, const wchar_t * strTitle,
 	int x = CW_USEDEFAULT, int y = CW_USEDEFAULT,
 	int nX = CW_USEDEFAULT, int nY = CW_USEDEFAULT,
 	DWORD style = WS_OVERLAPPEDWINDOW,
@@ -408,7 +412,7 @@ HWND MyCreateWindow(wchar_t * classTitle, wchar_t * strTitle,
 
 HWND MyCreateWindowEx(
 	DWORD exStyle,
-	wchar_t * classTitle, wchar_t * strTitle,
+	const wchar_t * classTitle, const wchar_t * strTitle,
 	int x = CW_USEDEFAULT, int y = CW_USEDEFAULT,
 	int nX = CW_USEDEFAULT, int nY = CW_USEDEFAULT,
 	DWORD style = WS_OVERLAPPEDWINDOW,
@@ -638,7 +642,7 @@ public:
 
 	aVectEx& CreateCriticalSection(unsigned int spinCount = 0) {
 
-		if (pCs) MY_ERROR("Non implémenté");
+		if (pCs) MY_ERROR("Non impl\E9ment\E9");
 		pCs = (CRITICAL_SECTION *)HeapAlloc(heap, 0, sizeof *pCs);
 		if (!pCs) MY_ERROR("HeapAlloc failed");
 		InitializeCriticalSectionAndSpinCount(pCs, spinCount);
@@ -969,7 +973,7 @@ public:
 
 	WinProcess() : pi(pi_zero), si(si_zero), processCreated(false), hStdError(si.hStdError), 
 				   hStdOutput(si.hStdOutput), hStdInput(si.hStdInput), dwFlags(si.dwFlags), dwProcessId(pi.dwProcessId) {
-		si.cb = sizeof si;
+		si.cb = sizeof(si);
 	}
 
 	WinProcess(const WinProcess &) = delete;
@@ -1000,7 +1004,13 @@ public:
 	}
 
 	WinProcess & WaitFor(DWORD milliseconds = INFINITE) {
-		if (this->processCreated) WaitForSingleObject(this->pi.hProcess, milliseconds);
+		if (this->processCreated) {
+			auto r = WaitForSingleObject(this->pi.hProcess, milliseconds);
+			if (r == WAIT_FAILED) {
+				SAFE_CALL(0);
+				int a = 0;
+			}
+		}
 		return *this;
 	}
 
@@ -1322,9 +1332,14 @@ struct WinEvents {
 		return *this;
 	}
 
+	WinEvents& Push(const HANDLE & h) {
+		this->events.Push(h);
+		return *this;
+	}
+
 	bool WaitForAll(DWORD milliseconds = INFINITE) {
 
-		auto r = WaitForMultipleObjects(this->events.Count(), this->events, true, milliseconds);
+		auto r = WaitForMultipleObjects((DWORD)this->events.Count(), this->events, true, milliseconds);
 
 		if (r >= WAIT_OBJECT_0 && r <= WAIT_OBJECT_0 + this->events.Count() - 1) {
 			return true;
@@ -1340,13 +1355,13 @@ struct WinEvents {
 
 	HANDLE WaitForAny(DWORD milliseconds = INFINITE) {
 
-		auto r = WaitForMultipleObjects(this->events.Count(), this->events, false, milliseconds);
+		auto r = WaitForMultipleObjects((DWORD)this->events.Count(), this->events, false, milliseconds);
 
 		if (r >= WAIT_OBJECT_0 && r <= WAIT_OBJECT_0 + this->events.Count() - 1) {
 			return this->events[r - WAIT_OBJECT_0];
 		}
 		if (r == WAIT_TIMEOUT) return NULL;
-		if (r == WAIT_FAILED) MY_ERROR("WaitForMultipleObjects Failed");
+		if (r == WAIT_FAILED) SAFE_CALL(0);//MY_ERROR("WaitForMultipleObjects Failed");
 		if (r >= WAIT_ABANDONED_0 && r <= WAIT_ABANDONED_0 + this->events.Count() - 1) {
 			MY_ERROR("WaitForMultipleObjects Failed");
 		}
@@ -1743,7 +1758,7 @@ class PathEnumerator {
 public:
 
 	PathEnumerator() : hFind(NULL), noMoreFiles(false) {}
-	PathEnumerator(wchar_t * p) : path(p), hFind(NULL), noMoreFiles(false) {}
+	PathEnumerator(const wchar_t * p) : path(p), hFind(NULL), noMoreFiles(false) {}
 
 	PathEnumerator(PathEnumerator & that) = delete;
 
@@ -2182,7 +2197,7 @@ public:
 
 		// Clear any pending FP exceptions. This must be done
 		// prior to enabling FP exceptions since otherwise there
-		// may be a ‘deferred crash’ as soon the exceptions are
+		// may be a \91deferred crash\92 as soon the exceptions are
 		// enabled.
 		_clearfp();
 
@@ -2356,12 +2371,8 @@ public:
 };
 
 
-HTREEITEM MyTreeView_InsertItem(
-	HWND hTree,
-	HTREEITEM hParent,
-	HTREEITEM hInsertAfter,
-	const wchar_t * str,
-	void * param = nullptr);
+HTREEITEM MyTreeView_InsertItem(HWND hTree, HTREEITEM hParent, HTREEITEM hInsertAfter, const wchar_t * str, void * param = nullptr);
+void MyTreeView_RemoveCheckBox(HWND hTreeView, HTREEITEM hNode);
 
 void * MyTreeView_GetItemParam(HWND hWnd, HTREEITEM hItem);
 
@@ -2422,6 +2433,13 @@ inline bool StrEqual(const char * s1, const char * s2) {
 inline bool StrEqual(const wchar_t * s1, const wchar_t * s2) {
 	return StrEqualCore(s1, s2);
 }
+
+aVect<wchar_t> MyGetWindowText(HWND hWnd);
+void MyGetWindowText(aVect<wchar_t> & str, HWND hWnd);
+aVect<wchar_t> ListBox_MyGetText(HWND hListBox);
+void ListBox_MyGetText(aVect<wchar_t> str, HWND hListBox);
+void CopyToClipBoard(const aVect<wchar_t> & str);
+void AdjustWindowSizeForText(HWND hWnd, bool adjust_width, bool adjust_height);
 
 #endif
 

@@ -279,7 +279,7 @@ aVect< aVect<double> > Olga_GetTrends(
     ASSERT_ALWAYS(src.Open(), aVect<char>("Could not open input file : %s", strerror(errno)));
 
     do {
-        buffer = src.GetLine();
+        buffer = src.GetLine().Trim();
 		if (writeHeader && dstFile) fprintf(dstFile, "%s\n", (const char*)buffer);
         if (!buffer) {
 			if (pLogFile) pLogFile->Printf("Error in tpl file : 'CATALOG' not found !");
@@ -302,6 +302,7 @@ aVect< aVect<double> > Olga_GetTrends(
 	}
 
 	aVect<size_t> indArray;
+	aVect<size_t> perm;
 	size_t N = varNames ? varNames.Count() : nVar;
 	
 	if (!varNames) {
@@ -315,7 +316,7 @@ aVect< aVect<double> > Olga_GetTrends(
 		if (descriptions)   descriptions->Redim(0).Redim(N);
 		if (units)		    units->Redim(0).Redim(N);
 	}
-	
+
 	aVect<bool> found(N);
 
 	found.Set(false);
@@ -352,6 +353,7 @@ aVect< aVect<double> > Olga_GetTrends(
 				(!units        || !(*units)[j]          || strcmp_caseInsensitive(unit,         (*units)[j]) == 0))
 			{
 				indArray.Push(i + 1);
+				perm.Push(j);
 				if (found[j]) {
 					j++; N++;
 					found.Insert(j, true);
@@ -431,13 +433,20 @@ aVect< aVect<double> > Olga_GetTrends(
 		n++;
 		if (src.Eof()) break;
 	}
-
     src.Close();
 
 	if (startTime) *startTime = t ? t[timeInd] ? t[timeInd][0] : -1 : -1;
 	if (!timeRequested && timeInserted) t.Remove(timeInd);
 
-	return std::move(t);
+	aVect<aVect<double>> t2(t.Count());
+
+	if (timeRequested) perm.Insert(0, 0);
+
+	aVect_static_for(perm, i) {
+		t2[perm[i]] = std::move(t[i]);
+	}
+
+	return std::move(t2);
 }
 
 
@@ -1246,8 +1255,8 @@ double GetValueInUnit(CharPointer & line, const char * unitTo) {
 
 		auto unitFrom = RetrieveStr<' ', '=', ','>(line);
 
-		if (strcmp_caseInsensitive(unitFrom, "C") == 0) unitFrom = "°C";
-		if (strcmp_caseInsensitive(unitFrom, "F") == 0) unitFrom = "°F";
+		if (strcmp_caseInsensitive(unitFrom, "C") == 0) unitFrom = "\B0C";
+		if (strcmp_caseInsensitive(unitFrom, "F") == 0) unitFrom = "\B0F";
 
 		//ReplaceStr(unitFrom, "SM3", "sm3");
 
@@ -1395,8 +1404,21 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format2(const wchar_t * fileName) {
 		line = file.GetLine().Trim();
 	}
 
+	bool multiple_tables = false;
+
 	CharPointer tok = RetrieveStr(line);
-	if (!IsNumber(tok)) MY_ERROR("expected a number");
+	if (!IsNumber(tok)) {
+		//TODO: multiple tables
+		multiple_tables = true;
+		line = file.GetLine().Trim();
+		line = file.GetLine().Trim();
+		line = file.GetLine().Trim();
+		line = file.GetLine().Trim();
+		tok = RetrieveStr(line);
+		if (!IsNumber(tok)) {
+			MY_ERROR("expected a number");
+		}
+	}
 	size_t nPressurePoints = atoi(tok);
 
 	tok = RetrieveStr(line);
@@ -1422,7 +1444,10 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format2(const wchar_t * fileName) {
 		double delta_P = Atof(tok);
 		if (!IsNumber(tok = RetrieveStr(line))) MY_ERROR("expected a number");
 		double delta_T = Atof(tok);
-		if (line) MY_ERROR("unexpected token");
+		if (line) {
+			//if (multiple_tables) goto 
+			MY_ERROR("unexpected token");
+		}
 		line = file.GetLine().Trim();
 		if (!IsNumber(tok = RetrieveStr(line))) MY_ERROR("expected a number");
 		double start_P = Atof(tok);
@@ -1440,7 +1465,7 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format2(const wchar_t * fileName) {
 	PushNumbers(nullptr, nTemperaturePoints, line, file);
 	 
 	table.P_unit = "Pa";
-	table.T_unit = "°C";
+	table.T_unit = "\B0C";
 
 	const aVect<PVTVarNames> varNames = { 
 		PVTVarNames("GAS DENSITY",						"ROG"),
@@ -1563,7 +1588,7 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format1(const wchar_t * fileName) {
 		if (!tok) break;
 
 		if      (0 == strcmp_caseInsensitive(tok, "STDPRESSURE"))    table.stdPressure     = GetValueInUnit(line, "bar");
-		else if (0 == strcmp_caseInsensitive(tok, "STDTEMPERATURE")) table.stdTemperature  = GetValueInUnit(line, "°C");
+		else if (0 == strcmp_caseInsensitive(tok, "STDTEMPERATURE")) table.stdTemperature  = GetValueInUnit(line, "\B0C");
 		else if (0 == strcmp_caseInsensitive(tok, "GOR"))            table.GOR			   = GetValueInUnit(line, "sm3/sm3");
 		else if (0 == strcmp_caseInsensitive(tok, "GLR"))            table.GLR			   = GetValueInUnit(line, "sm3/sm3");
 		else if (0 == strcmp_caseInsensitive(tok, "WC"))             table.WC			   = GetValueInUnit(line, nullptr);
@@ -1589,7 +1614,7 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format1(const wchar_t * fileName) {
 
 			tok = RetrieveStr<','>(line).Trim();
 			if (!tok) return PVT_ReadError(file, "unexpected end of line while searching for temperature unit");
-			table.T_unit.Copy(tok).Prepend("°");
+			table.T_unit.Copy(tok).Prepend("\B0");
 		}
 		else  if (0 == strcmp_caseInsensitive(tok, "COLUMNS")) {
 			if (!Read_PVT_List(list, file, line, nullptr, true))  MY_ERROR("PVT file read error");

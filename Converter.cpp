@@ -15,11 +15,11 @@
 char * stringsToReplace_before[] = { "STB" };
 char * replaceWith_before[] =      { "sbbl" };
 
-char * stringsToReplace[] = { "nauticalmiles",  "nauticmiles",    "seconde", "barrels", "grammes", "micron", "barrel", "heures", "gramme", "MMSCFD", "MMSCFd", "mmscf", "wéber", "metre", "litre", "heure", /*"milli", "micro",*/ "jours", "knots", "knot", "jour", "PSIA", "psia", "btu", "BTU", "SCF", "ATM", "PPM", "lbs", "STD", "std", "stb", "DAY", "PSI", "bpd", "cft", "Cal", "CFM", "CFH", "CFD", "degF", "degC", "KG", "PA", "kn",   "hr", "°f", "°c", "K", "L", "M" };
-char * replaceWith[] =      { "nautical-miles", "nautical-miles", "second",  "bbl",     "grams",   "µm",     "bbl",    "h",      "gram",   "MMscfd", "MMscfd", "MMscf", "weber", "meter", "liter", "h",     /*"m",     "µ",    */ "day",   "NM/h",  "NM/h", "day",   "psi",  "psi", "Btu", "Btu", "scf", "atm", "ppm", "lb",  "s",   "s",  "sbbl", "day", "psi", "BPD", "cf",  "cal", "cfm", "cfh", "cfd",   "°F",   "°C", "kg", "Pa", "NM/h", "h",  "°F", "°C", "k", "l", "m" };
+char * stringsToReplace[] = { "nauticalmiles",  "nauticmiles",    "seconde", "barrels", "grammes", "micron", "barrel", "heures", "gramme", "MMSCFD", "MMSCFd", "mmscf", "wÃ©ber", "metre", "litre", "heure", /*"milli", "micro",*/ "jours", "knots", "knot", "jour", "PSIA", "psia", "btu", "BTU", "SCF", "ATM", "PPM", "lbs", "STD", "std", "stb", "DAY", "PSI", "bpd", "cft", "Cal", "CFM", "CFH", "CFD", "degF", "degC", "KG", "PA", "kn",   "hr", "Â°f", "Â°c", "K", "L", "M" };
+char * replaceWith[] =      { "nautical-miles", "nautical-miles", "second",  "bbl",     "grams",   "Âµm",     "bbl",    "h",      "gram",   "MMscfd", "MMscfd", "MMscf", "weber", "meter", "liter", "h",     /*"m",     "Âµ",    */ "day",   "NM/h",  "NM/h", "day",   "psi",  "psi", "Btu", "Btu", "scf", "atm", "ppm", "lb",  "s",   "s",  "sbbl", "day", "psi", "BPD", "cf",  "cal", "cfm", "cfh", "cfd",   "Â°F",   "Â°C", "kg", "Pa", "NM/h", "h",  "Â°F", "Â°C", "k", "l", "m" };
 
 char * multipliersFullName[] = { "atto", "femto", "pico", "nano", "micro", "milli", "centi", "deci", "deca", "hecto", "kilo", "Millon", "Mega", "Giga", "Tera", "Peta", "Exa" };
-char * multipliers[]         = { "a",    "f",     "p",    "n",    "µ",     "m",     "c",     "d",    "da",   "h",     "k",    "MM",     "M",    "G",    "T",    "P",    "E" };
+char * multipliers[]         = { "a",    "f",     "p",    "n",    "Âµ",     "m",     "c",     "d",    "da",   "h",     "k",    "MM",     "M",    "G",    "T",    "P",    "E" };
 double multiplierVal[]       = { 1e-18,  1e-15,   1e-12,  1e-9,   1e-6,    1e-3,    1e-2,    1e-1,    1e1,    1e2,    1e3,    1e6,      1e6,    1e9,    1e12,   1e15,   1e18 };
 
 // www.eng.auth.gr/~chemtech/foititika/various/monades_metatropes_sp811.pdf
@@ -132,7 +132,7 @@ double electricChargeConvFact[]            = { 1 };
 
 char * temperatureUnitsFullNamePlural[] = { "Celsius", /*"Celsius",*/ "Fahrenheits",     /*"Fahrenheits",*/  "Kelvins", "Kelvins", "Rankines" };
 char * temperatureUnitsFullName[]       = { "Celsius", /*"Celsius",*/ "Fahrenheit",      /*"Fahrenheit",*/   "Kelvin",  "Kelvin",  "Rankine" };
-char * temperatureUnits[]               = { "°C",      /*"C",*/       "°F",              /*"F",*/            "°K",      "K",       "°R" };
+char * temperatureUnits[]               = { "Â°C",      /*"C",*/       "Â°F",              /*"F",*/            "Â°K",      "K",       "Â°R" };
 double temperatureConvFact[]            = { 1,         /*1,*/         1 / 1.8,           /*1/1.8,*/           1,        1,          1 / 1.8 };
 double temperatureConvOffset[]          = { 273.15,    /*273.15,*/    273.15 - 32 / 1.8, /*273.15 - 32/1.8,*/ 0,        0,          0 };
  
@@ -153,7 +153,7 @@ double adimConvFact[]            = { 1,   1e-6,                1e-2 };
 
 char * angleUnitsFullNamePlural[] = { "radians", "degrees" };
 char * angleUnitsFullName[]       = { "radian",  "degree" };
-char * angleUnits[]               = { "rad",     "°" };
+char * angleUnits[]               = { "rad",     "Â°" };
 double angleConvFact[]            = { 1,         PI / 180 };
 
 char * solidAngleUnitsFullNamePlural[]	= { "steradians" };
@@ -758,7 +758,7 @@ DimensionInfo DimensionTypesEx::GetDimensionName(Dimension & dim) {
 	if (dim == this->stdVolume)				return DimensionInfo("Standard volume", "Sm3");
 	if (dim == this->surface)				return DimensionInfo("Surface", "m2");
 	if (dim == this->surfaceTension)		return DimensionInfo("Surface tension", "N/m");
-	if (dim == this->temperature)			return DimensionInfo("Temperature", "°K");
+	if (dim == this->temperature)			return DimensionInfo("Temperature", "Â°K");
 	if (dim == this->thermalConductivity)	return DimensionInfo("Thermal conductivity", "W/m/K");
 	if (dim == this->time)			return DimensionInfo("Time", "seconds");
 	if (dim == this->velocity)		return DimensionInfo("Velocity", "m/s");
@@ -1169,6 +1169,256 @@ SI_PhysicalValue UnitConverterCore::ToSI(
 	return retVal;
 }
 
+#pragma optimize("", off) 
+void COMPILERBUG_WORKAROUND(size_t K, char * str, size_t & charsLeft) {
+	for (size_t k = 0; k < K; ++k) {
+		str[k] = 127; //Delete
+		charsLeft--;
+	}
+}
+#pragma optimize("", on) 
+
+void UnitConverterCore::ToSI_COMPILERBUG(
+	SI_PhysicalValue & retVal,
+	ValueAndUnit & pv,
+	bool inv,
+	size_t nTry,
+	size_t lastReplaceOffset,
+	LogFile * pLogFile)
+{
+	
+	pv.unit.RemoveBlanks();
+
+	double value = pv.value;
+	double value_with_offset = pv.value;
+	static aVect<char> unitCopy;
+
+	unitCopy = pv.unit;
+
+	Dimension dim;
+	static aVect<char> fullNameUnit, fullNameUnitPlural;
+	static aVect<char> origFullUnitStr;
+	static ValueAndUnit valueAndUnit;
+
+	fullNameUnit.Redim(0);
+	fullNameUnitPlural.Redim(0);
+	origFullUnitStr = pv.unit;
+
+	if (!TranslateParenthesisAndStuff(pv.unit)) {
+		//retVal.error = false;
+		//retVal.orig_value = pv.value;
+		//retVal.SI_value = 0;
+		//retVal.dim = Dimension();
+		//retVal.orig_unitStr = origFullUnitStr;
+		//retVal.orig_unitStrFullName = fullNameUnit;
+		//retVal.orig_unitStrFullNamePlural = fullNameUnitPlural;
+		////return SI_PhysicalValue(pv.value, 0, Dimension(), origFullUnitStr, fullNameUnit, fullNameUnitPlural);
+		retVal.ReuseCtor(pv.value, 0, Dimension(), origFullUnitStr, fullNameUnit, fullNameUnitPlural);
+		return;
+	}
+
+	if (pv.unit) {
+
+		for (size_t i = 0; i < NUMEL(stringsToReplace_before); ++i) {
+			ReplaceStr(pv.unit, stringsToReplace_before[i], replaceWith_before[i], false, true, false);
+		}
+
+		if (!g_sortedUnitArray) InitSortedUnitArray();
+
+		size_t charsLeft = strlen(pv.unit);
+
+		static CachedVect<aVect<char> > numerators, denominators, parsedToken, translatedToken;
+		static CachedVect<aVect<char> > numeratorsPlural, denominatorsPlural;
+
+		numerators.Redim(0);
+		denominators.Redim(0);
+		parsedToken.Redim(0);
+		translatedToken.Redim(0);
+
+		static aVect<char> pv_unit;
+		pv_unit = pv.unit;
+
+		auto&& unitArray = g_sortedUnitArray[nTry];
+
+		for (size_t i = 0; charsLeft && i < unitArray.Count();) {
+
+			auto&& heapMax = unitArray[i];
+
+			char * unitStr = (heapMax.fullName ? (heapMax.plural ? heapMax.uConv->unitFullNamePlural : heapMax.uConv->unitFullName) : heapMax.uConv->unit);
+			bool divide = false;
+			int standard_conditions = 0;
+
+			static aVect<char> prefixFullName, prefixFullName_stdCond;
+			prefixFullName.Redim(0);
+			prefixFullName_stdCond.Redim(0);
+
+			char * origStr;
+			bool recognizedToken = false;
+
+			if (char * str = origStr = heapMax.fullName ?
+				reverse_strstr_caseInsensitive(pv_unit, unitStr) :
+				reverse_strstr(pv_unit, unitStr)) {
+
+				int rewind = 0;
+				double multiplier = 1, exposant = 1, multiplier_stdCond = 1;
+
+				if (str[0] != '1' || str[1] != 0) {
+					if (str >= (char*)pv_unit + 1) {
+						if (str[-1] == '-' && !IsNumber(str)) {
+							ptrdiff_t d = &str[-1] - (char*)pv_unit;
+							pv_unit.Remove(d);
+							str--;
+							charsLeft--;
+						}
+					}
+
+					if (!ScanPrefix(str, pv_unit, standard_conditions, rewind, prefixFullName,
+						prefixFullName_stdCond, multiplier, multiplier_stdCond))
+					{
+						goto continueParse;
+					};
+				}
+
+				if (!ScanPrefix(str, pv_unit, standard_conditions, rewind, prefixFullName,
+					prefixFullName_stdCond, multiplier, multiplier_stdCond, true))
+				{
+					goto continueParse;
+				}
+
+				size_t unitStrLen = strlen(unitStr);
+				static aVect<char> strBeforeDelete;
+				strBeforeDelete = str;
+
+				if (str >= (char*)pv_unit + 1) {
+					if (str[-1] == '/') {
+						divide = true;
+					}
+					else if (str[-1] != '*') {
+						goto continueParse;
+					}
+					str[-1] = 127; //Delete
+					charsLeft--;
+				}
+
+
+				for (size_t k = 0, K = unitStrLen + rewind; k < K; ++k) {
+					str[k] = 127; //Delete
+					charsLeft--;
+				}
+				//COMPILERBUG_WORKAROUND(unitStrLen + rewind, str, charsLeft);
+
+				static aVect<char> strAfterDelete;
+				strAfterDelete = str;
+
+				char * strEndExposant = str = origStr + unitStrLen;
+
+				char * pvUnitEnd = (char*)pv_unit + strlen(pv_unit);
+				while (strEndExposant < pvUnitEnd &&
+					(IsDigit(*strEndExposant) ||
+						*strEndExposant == '-' ||
+						*strEndExposant == '^' ||
+						*strEndExposant == '.')) strEndExposant++;
+
+				if (str < strEndExposant) {
+					static aVect<char> aExp;
+
+					aExp.Redim(strEndExposant - str);
+					bool containsDigits = false;
+					aVect_static_for(aExp, i) {
+						aExp[i] = str[i];
+						if (i > 0 && aExp[i] == '^') goto continueParse;
+						if (i > 0 && aExp[i] == '-' && aExp[i - 1] != '^') goto continueParse;
+						if (IsDigit(aExp[i])) containsDigits = true;
+					}
+					if (!containsDigits) goto continueParse;
+
+
+					aVect_static_for(aExp, i) {
+						str[i] = 127; //Delete;
+						charsLeft--;
+					}
+
+					//COMPILERBUG_WORKAROUND(aExp.Count(), str, charsLeft);
+
+					if (aExp[0] == '^') aExp.Remove(0);
+					aExp.Push(0);
+					exposant = atof(aExp);
+				}
+
+				if (divide) exposant *= -1, standard_conditions *= -1;
+
+				Dimension additionalDimensions(0, 0, 0, 0, 0, standard_conditions, 0, 0, 0, 0);
+
+				dim += exposant * (heapMax.uConv->dim) + additionalDimensions;
+				double convFact = multiplier_stdCond * pow(multiplier * heapMax.uConv->convFact, exposant);
+
+				value = inv ? (value / convFact) : (value * convFact);
+
+				//value_with_offset makes sense only if converting "pure" temperatures
+				if (inv) {
+					if (divide) MY_ERROR("Non implemented");
+					value_with_offset = 1 / multiplier * (value_with_offset - heapMax.uConv->convOffset) / heapMax.uConv->convFact;
+				}
+				else {
+					value_with_offset = 1 / multiplier *
+						(divide ?
+							value_with_offset / heapMax.uConv->convFact :
+							value_with_offset * heapMax.uConv->convFact)
+						+ heapMax.uConv->convOffset;
+				}
+
+				auto * pStrVect = exposant > 0 ? &numerators : &denominators;
+				auto * pStrVectPlural = exposant > 0 ? &numeratorsPlural : &denominatorsPlural;
+				auto & string = pStrVect->Grow(1).Last();
+				auto & stringPlural = pStrVectPlural->Grow(1).Last();
+
+				if (prefixFullName_stdCond) string.Append("%s-", (char*)prefixFullName_stdCond), stringPlural.Append("%s-", (char*)prefixFullName_stdCond);
+				if (abs(exposant) != 1) string.Append("("), stringPlural.Append("(");
+				if (prefixFullName) string.Append("%s-", (char*)prefixFullName), stringPlural.Append("%s-", (char*)prefixFullName);
+				string.Append("%s", (char*)heapMax.uConv->unitFullName);
+				stringPlural.Append("%s", (char*)heapMax.uConv->unitFullNamePlural);
+
+
+				if (abs(exposant) != 1) {
+
+					static aVect<char> niceFloat;
+					NiceFloat(niceFloat, abs(exposant), 1e-6);
+
+					string.Append(")^%s", (char*)niceFloat);
+					stringPlural.Append(")^%s", (char*)niceFloat);
+				}
+
+				static aVect<char> analysedToken;
+				analysedToken = strBeforeDelete;
+
+				aVect_static_for(analysedToken, j) {
+					if (strAfterDelete[j] != 127 || strBeforeDelete[j] == 127) {
+						analysedToken[j] = 0;
+						break;
+					}
+				}
+
+				parsedToken.Push(analysedToken);
+				translatedToken.Push(string);
+
+				recognizedToken = true;
+			}
+		continueParse:;
+			if (!recognizedToken) i++;
+		}
+
+	}
+
+	//return SI_PhysicalValue(pv.value, value, dim, origFullUnitStr, fullNameUnit, fullNameUnitPlural);
+	retVal.ReuseCtor(pv.value, value, dim, origFullUnitStr, fullNameUnit, fullNameUnitPlural);
+	return;
+	
+
+	//return SI_PhysicalValue();//unreachable code, to avoid compiler warnings;
+	retVal.ReuseCtor();
+	return;
+}
+
 void UnitConverterCore::ToSI(
 	SI_PhysicalValue & retVal,
 	ValueAndUnit & pv,
@@ -1295,11 +1545,11 @@ void UnitConverterCore::ToSI(
 						charsLeft--;
 					}
 
-
-					for (size_t k = 0, K = unitStrLen + rewind; k < K; ++k) {
-						str[k] = 127; //Delete
-						charsLeft--;
-					}
+					//for (size_t k = 0, K = unitStrLen + rewind; k < K; ++k) {
+					//	str[k] = 127; //Delete
+					//	charsLeft--;
+					//}
+					COMPILERBUG_WORKAROUND(unitStrLen + rewind, str, charsLeft);
 
 					static aVect<char> strAfterDelete;
 					strAfterDelete = str;
@@ -1325,10 +1575,14 @@ void UnitConverterCore::ToSI(
 							if (IsDigit(aExp[i])) containsDigits = true;
 						}
 						if (!containsDigits) goto continueParse;
-						aVect_static_for(aExp, i) {
-							str[i] = 127; //Delete;
-							charsLeft--;
-						}
+
+						//aVect_static_for(aExp, i) {
+						//	str[i] = 127; //Delete;
+						//	charsLeft--;
+						//}
+
+						COMPILERBUG_WORKAROUND(aExp.Count(), str, charsLeft);
+
 						if (aExp[0] == '^') aExp.Remove(0);
 						aExp.Push(0);
 						exposant = atof(aExp);
@@ -1530,6 +1784,105 @@ UnitConverter::UnitConverter(const char* unitFrom, const char* unitTo, bool stri
 	this->SetUnits(unitFrom, unitTo, strict);
 }
 
+UnitConverter::ConvState UnitConverter::PreCompute_COMPILERBUG() {
+	if (this->state == state_ready) return state_ready;
+
+	if (this->convFromSI && this->convToSI) {
+		this->factor = 1;
+		this->offset = 0;
+		return this->state = state_ready;
+	}
+
+	if ((this->convFrom || this->convFromSI) && (this->convTo || this->convToSI)) {
+
+		UnitConverterCore converter;
+
+		double x1 = 1;
+		static WinCriticalSection cs;
+		Critical_Section(cs) {
+			static SI_PhysicalValue SI_convFrom_1;
+			static SI_PhysicalValue SI_convTo;
+			static ValueAndUnit valueAndUnit;
+
+			if (!this->convFromSI) {
+				valueAndUnit.ReuseCtor(x1, this->convFrom);
+				converter.ToSI_COMPILERBUG(SI_convFrom_1, valueAndUnit);
+				if (SI_convFrom_1.error) return this->state = state_convFrom_error;
+			}
+
+			bool isPureTemperature;
+			bool SI_convTo_initialized = false;
+
+			if (!this->convFromSI) {
+				isPureTemperature = SI_convFrom_1.dim.IsPureTemperature();
+			}
+			else {
+				valueAndUnit.ReuseCtor(1, this->convTo);
+				converter.ToSI(SI_convTo, valueAndUnit);
+				if (SI_convTo.error) return this->state = state_convTo_error;
+				SI_convTo_initialized = true;
+				isPureTemperature = SI_convTo.dim.IsPureTemperature();
+			}
+
+			if (isPureTemperature) {
+
+				static SI_PhysicalValue c1;
+				if (!this->convToSI) {
+					valueAndUnit.ReuseCtor(this->convFromSI ? x1 : SI_convFrom_1.SI_value, this->convTo);
+					converter.ToSI(c1, valueAndUnit, true);
+					if (c1.error) return this->state = state_convTo_error;
+
+					if (SI_convFrom_1.dim != c1.dim && !this->convToSI && !this->convFromSI) {
+						return this->state = state_unit_mismatch;
+					}
+				}
+
+				double x2 = 2;
+				static SI_PhysicalValue SI_convFrom_2;
+				if (!this->convFromSI) {
+					valueAndUnit.ReuseCtor(x2, this->convFrom);
+					converter.ToSI(SI_convFrom_2, valueAndUnit);
+					if (SI_convFrom_2.error) return this->state = state_convFrom_error;
+				}
+
+				static SI_PhysicalValue c2;
+				if (!this->convToSI) {
+					valueAndUnit.ReuseCtor(this->convFromSI ? x2 : SI_convFrom_2.SI_value, this->convTo);
+					converter.ToSI(c2, valueAndUnit, true);
+					if (c2.error) return this->state = state_convTo_error;
+				}
+
+				double y1 = this->convToSI ? SI_convFrom_1.SI_value : c1.SI_value;
+				double y2 = this->convToSI ? SI_convFrom_2.SI_value : c2.SI_value;
+
+				this->factor = (y2 - y1) / (x2 - x1);
+				this->offset = y1 - this->factor * x1;
+			}
+			else {
+
+				if (!SI_convTo_initialized && !this->convToSI) {
+					valueAndUnit.ReuseCtor(1, this->convTo);
+					converter.ToSI(SI_convTo, valueAndUnit);
+					if (SI_convTo.error) return this->state = state_convTo_error;
+				}
+
+				if (!this->strict) SI_convFrom_1.dim.standard = SI_convTo.dim.standard = 0;
+
+				if (SI_convFrom_1.dim != SI_convTo.dim && !this->convToSI && !this->convFromSI) return this->state = state_unit_mismatch;
+
+				this->factor = (this->convFromSI ? x1 : SI_convFrom_1.SI_value)
+					/
+					(this->convToSI ? 1 : SI_convTo.SI_value);
+
+				this->offset = 0;
+			}
+
+			return this->state = state_ready;
+		}
+	}
+	return this->state = state_unitialized;
+}
+
 UnitConverter::ConvState UnitConverter::PreCompute() {
 
 	if (this->state == state_ready) return state_ready;
@@ -1719,6 +2072,16 @@ double UnitConverter::Convert(double value) {
 	}
 }
 
+double UnitConverter::Convert_COMPILERBUG(double value) {
+
+	if (this->IsReady_COMPILERBUG()) {
+		return this->factor * value + this->offset;
+	}
+	else {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+}
+
 void UnitConverter::Convert_InPlace(aVect<double>& values) {
 
 	if (this->IsReady()) {
@@ -1752,6 +2115,14 @@ bool UnitConverter::IsReady() {
 
 	if (this->state == UnitConverter::state_unitialized) {
 		this->PreCompute();
+	}
+	return this->state == state_ready;
+}
+
+bool UnitConverter::IsReady_COMPILERBUG() {
+
+	if (this->state == UnitConverter::state_unitialized) {
+		this->PreCompute_COMPILERBUG();
 	}
 	return this->state == state_ready;
 }

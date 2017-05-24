@@ -67,3 +67,7 @@ struct ExcelAddInManager {
 	void Add(const wchar_t * path, bool install);
 };
 
+void ExcelConnection(
+	const wchar_t * dialogTitle,
+	ExcelAddInManager & addremove_info,
+	int& createdProcessID);

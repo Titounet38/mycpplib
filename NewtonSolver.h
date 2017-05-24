@@ -994,7 +994,7 @@ public:
 	bool autoAdjustRelaxFactor = false;
 	bool lineSearch = false;
 	bool L2_norm_lineSearch = false;
-	int noProgressGiveUp = 0;//n° of iterations with no convergence progress required to give up
+	int noProgressGiveUp = 0;//n\B0 of iterations with no convergence progress required to give up
 	unsigned long long iCurrentIterations_minNorm;
 	double minNorm;
 	bool gradientDescentFallBack = false;
@@ -2019,7 +2019,7 @@ private:
 					for (auto i = iStart; cond(k, i, iStop); i += iDir) {
 
 						//auto gamma = iDir * pow(2, 0.5*(1 - i));
-						auto gamma = iDir * pow(3, 0.5*(1 - i));
+						auto gamma = iDir * pow(3, 0.9*(1 - i));
 
 						//double r = (double)rand() / RAND_MAX;
 						//gamma *= (r + 9) / 10;
@@ -2683,7 +2683,7 @@ public:
 			//}
 
 			if (patternChanged) {
-				printf("jacobian iter %llu (solve n°%llu) : non zero pattern changed (nValues = %llud).\n", this->nCurrentIterations, this->nSolve, (unsigned long long)this->jacobian.row.Count());
+				printf("jacobian iter %llu (solve n\B0%llu) : non zero pattern changed (nValues = %llud).\n", this->nCurrentIterations, this->nSolve, (unsigned long long)this->jacobian.row.Count());
 				this->klu.firstSolve = true;
 				this->oldJacobian.row.Copy(this->jacobian.row);
 				this->oldJacobian.col.Copy(this->jacobian.col);
@@ -2791,18 +2791,17 @@ public:
 
 	Problem & Plot(void * param = nullptr) {
 
-		if (!this->plotFunc) MY_ERROR("Plot function not set");
+		//if (!this->plotFunc) MY_ERROR("Plot function not set");
 
 		if (!this->axes.profiles)    this->axes.profiles.CreateAt(0.5, 0.5, 0.5, 0);
 		this->axes.profiles.ClearSeries().SetTitle(Wide(this->name ? this->name : "Profiles"));
 
 		//call userfunc
-		PlotFunctionCallbackReturnValue retVal = this->plotFunc(*this, param);
+		PlotFunctionCallbackReturnValue retVal = this->plotFunc ? this->plotFunc(*this, param) : NEWTONSOLVER_NOREFRESH;
 
 		if (retVal == NEWTONSOLVER_REFRESH) {
 			this->axes.profiles.AutoFit().Refresh();
-		}
-		else if (retVal == NEWTONSOLVER_REFRESHASYNC) {
+		} else if (retVal == NEWTONSOLVER_REFRESHASYNC) {
 			this->axes.profiles.AutoFit().RefreshAsync();
 		}
 
@@ -3774,6 +3773,8 @@ found:;
 		this->nCurrentIterations = 0;
 		this->minNorm = std::numeric_limits<double>::infinity();
 		this->iCurrentIterations_minNorm = 0;
+		this->failSafe.lastFailedIteration = 0;
+		this->failSafe.lastFail_nIterations = 0;
 
 		if (failSafe) this->NewtonRaphsonBackup<mesureTiming>();
 		

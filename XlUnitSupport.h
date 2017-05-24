@@ -28,6 +28,11 @@ namespace XlUnitSupport {
 		bool strict = false,
 		Convert_MissingBehavior missingBehavior_from = Convert_MissingBehavior::missing_is_adimensional,
 		Convert_MissingBehavior missingBehavior_to = Convert_MissingBehavior::missing_is_adimensional);
+
+	double  ConvertInput(VARIANT & v, const wchar_t * unit);
+	VARIANT ConvertOutput(VARIANT & v, const wchar_t * unit);
+
+	VARIANT ConvertInput_noThrow(VARIANT & v, const wchar_t * unit);
 }
 #endif
 

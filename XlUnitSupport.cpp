@@ -86,6 +86,8 @@ namespace XlUnitSupport {
 				str2.Trim();
 				vs_unit_ptr = str2;
 				vs_unit.TakeOwnership(numFormat);
+			} else if (numFormat.vt == VT_NULL) {
+				vs_unit_ptr = nullptr;
 			} else {
 				VariantClear(&numFormat);
 				if (ExcelUtils::IsError(numFormat)) return numFormat;
@@ -365,9 +367,88 @@ do_full_conversion:
 		}
 		
 		if (auto error = converter.GetError()) {
-			return ExcelUtils::MakeVariant_String(xFormat(L"# %S #", error));
+			return ExcelUtils::MakeVariant_String(xFormat(L"%S", error));
 		} else {
 			return ExcelUtils::MakeVariant_Double(convertedValue);
 		}
+	}
+
+	/* must clear retVal if not returned */
+	VARIANT ConvertCheck(VARIANT & retVal, const wchar_t * unit, bool noThrow) {
+
+		if (ExcelUtils::IsString(retVal)) {
+			if (retVal.bstrVal && retVal.bstrVal[0] == L'#') {
+				if (noThrow) {
+					return retVal;
+				}
+				else {
+					auto ex = std::runtime_error(xFormat("%S", retVal.bstrVal));
+					VariantClear(&retVal);
+					throw ex;
+				}
+			}
+			auto type = XlUnitSupport::GetType(ExcelUtils::MakeVariant_FakeString(unit));
+			if (noThrow) {
+				auto retVal2 = ExcelUtils::MakeVariant_String((const wchar_t*)xFormat(L"# Wrong unit for %s: %s #", type.bstrVal, retVal.bstrVal));
+				VariantClear(&type);
+				VariantClear(&retVal);
+				return retVal2;
+			}
+			else {
+				auto ex = std::runtime_error(xFormat("Wrong unit for %S: %S", type.bstrVal, retVal.bstrVal));
+				VariantClear(&type);
+				VariantClear(&retVal);
+				throw ex;
+			}
+		}
+
+		if (!ExcelUtils::IsDouble(retVal)) {
+			auto type = XlUnitSupport::GetType(ExcelUtils::MakeVariant_FakeString(unit));
+			if (noThrow) {
+				auto retVal2 = ExcelUtils::MakeVariant_String((const wchar_t*)xFormat(L"# Wrong input for %s #", type.bstrVal));
+				VariantClear(&type);
+				VariantClear(&retVal);
+				return retVal2;
+			}
+			else {
+				auto ex = std::runtime_error(xFormat("Wrong input for %S", type.bstrVal));
+				VariantClear(&type);
+				VariantClear(&retVal);
+				throw ex;
+			}
+		}
+
+		return retVal;
+	}
+
+	VARIANT ConvertInputCore(VARIANT & v, const wchar_t * unit, bool noThrow) {
+		auto retVal = Convert(v, ExcelUtils::MakeVariant_Missing(), ExcelUtils::MakeVariant_FakeString(unit), false, XlUnitSupport::missing_is_SI);
+		return ConvertCheck(retVal, unit, noThrow);
+	}
+
+	//VARIANT ConvertOutputCore(VARIANT & v, const wchar_t * unit, bool noThrow) {
+	//	auto retVal = XlUnitSupport::Convert(v, ExcelUtils::MakeVariant_FakeString(unit), ExcelUtils::MakeVariant_Missing(), false, XlUnitSupport::missing_is_adimensional, XlUnitSupport::missing_is_specified_unit);
+	//	return ConvertCheck(retVal, unit, noThrow);
+	//}
+
+	double ConvertInput(VARIANT & v, const wchar_t * unit) {
+		return ConvertInputCore(v, unit, false).dblVal;
+	}
+
+	//double ConvertOutput(VARIANT & v, const wchar_t * unit) {
+	//	return ConvertOutputCore(v, unit, false).dblVal;
+	//}
+
+	VARIANT ConvertInput_noThrow(VARIANT & v, const wchar_t * unit) {
+		return ConvertInputCore(v, unit, true);
+	}
+
+	//VARIANT ConvertOutput_noThrow(VARIANT & v, const wchar_t * unit) {
+	//	return ConvertOutputCore(v, unit, true);
+	//}
+
+	VARIANT ConvertOutput(VARIANT & v, const wchar_t * unit) {
+		auto retVal = XlUnitSupport::Convert(v, ExcelUtils::MakeVariant_FakeString(unit), ExcelUtils::MakeVariant_Missing(), false, XlUnitSupport::missing_is_adimensional, XlUnitSupport::missing_is_specified_unit);
+		return ConvertCheck(retVal, unit, true);
 	}
 }

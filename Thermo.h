@@ -11,7 +11,7 @@
 #define COMPILE_TIME_OFFSET_CHECK(parent, member) StaticCheckOffset<(size_t)&(((parent*)0)->member)>(member);
 
 extern const double R;
-extern const double NaN;
+//extern const double std::numeric_limits<double>::quiet_NaN();
 
 template<int offset, class T>
 void StaticCheckOffset(T&&) {
@@ -133,17 +133,17 @@ struct TestField {
 struct Component {
 	aVect<char> name;
 	aVect<char> chemicalFormula;
-	double Tc	 = NaN;		//critical temperature		[K]
-	double Pc	 = NaN;		//critical pressure			[Pa]
-	double Vc    = NaN;		//critical volume			[m3]
-	double omega = NaN;		//acentric factor			[-]
-	double mW	 = NaN;		//molecular weigth			[kg/kmol]     (kmol aka kilogram-mole)
-	double Z_ra  = NaN;		//Racket coeff				[-]
+	double Tc	 = std::numeric_limits<double>::quiet_NaN();		//critical temperature		[K]
+	double Pc	 = std::numeric_limits<double>::quiet_NaN();		//critical pressure			[Pa]
+	double Vc    = std::numeric_limits<double>::quiet_NaN();		//critical volume			[m3]
+	double omega = std::numeric_limits<double>::quiet_NaN();		//acentric factor			[-]
+	double mW	 = std::numeric_limits<double>::quiet_NaN();		//molecular weigth			[kg/kmol]     (kmol aka kilogram-mole)
+	double Z_ra  = std::numeric_limits<double>::quiet_NaN();		//Racket coeff				[-]
 	double H0    = 0;		//reference enthalpy at 298K - enthalpy offset
 	double G0	 = 0;		//reference free energy at 298K
-	double V_CTD = NaN;		//COSTALD volume			[m3/kmol]
-	double omega_CTD = NaN; //COSTALD acentric factor	[-]
-	//double Zc    = NaN;		//Critical Z factor // always equal to 0.30744752401796566 for Peng Robinson
+	double V_CTD = std::numeric_limits<double>::quiet_NaN();		//COSTALD volume			[m3/kmol]
+	double omega_CTD = std::numeric_limits<double>::quiet_NaN(); //COSTALD acentric factor	[-]
+	//double Zc    = std::numeric_limits<double>::quiet_NaN();		//Critical Z factor // always equal to 0.30744752401796566 for Peng Robinson
 	aVect<double> lambda_L_coef;
 	aVect<double> lambda_V_coef;
 	aVect<double> H_coef;
@@ -230,7 +230,7 @@ struct Component {
 
 			auto GetScalar = [&Find, &file](const char * desc, bool errorIfNotFound = true) {
 				auto e = Find(desc, errorIfNotFound);
-				if (!e) return NaN;
+				if (!e) return std::numeric_limits<double>::quiet_NaN();
 				if (e->Count() != 2) MY_ERROR(xFormat("file \"%s\":\n\n\"%s\" scalar expected", file.GetFilePath(), desc));
 				return atof((*e)[1]);
 			};
@@ -249,7 +249,7 @@ struct Component {
 			auto GetArray = [&Find, &file](double(&retVal)[5], const char * desc, bool errorIfNotFound = true) {
 				auto e = Find(desc, errorIfNotFound);
 				if (!e) {
-					for (auto&& v : retVal) v = NaN;
+					for (auto&& v : retVal) v = std::numeric_limits<double>::quiet_NaN();
 					return;
 				}
 				if (e->Count() < 2) MY_ERROR(xFormat("file \"%s\":\n\n\"%s\" vector expected", file.GetFilePath(), desc));
@@ -997,7 +997,7 @@ struct FluidComposition {
 			if (isConverged) {
 
 #ifdef _DEBUG
-				//DbgStr("phases eq convengence ok (%g °C, %g bar): psi = %g, nIter = %d\n", this->T.value - 273.15, this->P.value /1e5, psi, nIter);
+				//DbgStr("phases eq convengence ok (%g \B0C, %g bar): psi = %g, nIter = %d\n", this->T.value - 273.15, this->P.value /1e5, psi, nIter);
 #endif
 
 				if (IsEqualWithPrec(Zj[0], Zj[1], 1e-6)) psi = 1;
@@ -1044,7 +1044,7 @@ struct FluidComposition {
 
 					if (init) {
 						if (T != this->T.value || P != this->P.value) {
-							printf("phase equilibrium: convergence not reached (%g °C, %g Bar)\n", this->T.value - 273.15, this->P.value / 1e5);
+							printf("phase equilibrium: convergence not reached (%g \B0C, %g Bar)\n", this->T.value - 273.15, this->P.value / 1e5);
 							T = this->T.value;
 							P = this->P.value;
 						}
@@ -2163,7 +2163,7 @@ public:
 		this->phasesEquilibriumSolverTolerance = Max(tol * 1e-4, 1e-14);
 
 		solver.tol = tol;
-		solver.xMin = 0.05e5;
+		solver.xMin = 0.05;
 		solver.xMax = 1000e5;
 
 		solver.y_target = vaporVolumeFraction;
@@ -2173,7 +2173,17 @@ public:
 
 		solver.Solve<decltype(VVFT_Flash_Func), VVFT_Flash_Func, false>(*this, temperature);
 
-		if (!solver.isConverged) throw std::runtime_error("VVFT Flash: no convergence");
+		if (!solver.isConverged) {
+			//solver.xMin = 50;
+			//solver.Solve<decltype(VVFT_Flash_Func), VVFT_Flash_Func, false>(*this, temperature);
+			//if (!solver.isConverged) {
+			//	solver.xMin = 0.05;
+			//	solver.Solve<decltype(VVFT_Flash_Func), VVFT_Flash_Func, false>(*this, temperature);
+			//	if (!solver.isConverged) {
+					throw std::runtime_error("VVFT Flash: no convergence");
+				//}
+			//}
+		}
 	}
 
 	void RhoH_Flash(double density, double enthalpy, double tol = 1e-6);

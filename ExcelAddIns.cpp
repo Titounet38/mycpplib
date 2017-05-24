@@ -92,6 +92,13 @@ namespace {
 
 			log(xFormat(L"Checking workbook \"%s\".\n", wbName));
 
+			//log(xFormat(L"Fixing links in Excel instance %d...\n", addremove_info.openedApps.Index(openedApp)));
+			DWORD PID;
+			GetWindowThreadProcessId((HWND)app->Hwnd, &PID);
+			log(xFormat(L"Fixing links in Excel instance PID=%d...\n", PID));
+			FixWorkbooks(app, add_addinPath, log);
+			log(L"Done.\n");
+
 			wchar_t * wbExt = nullptr;
 			for (auto&& c : Reverse(wbName)) {
 				if (c == L'.') {
@@ -118,7 +125,21 @@ namespace {
 				}
 			}
 
-			auto&& refs = wb->VBProject->References;
+			//auto&& refs = wb->VBProject->References;
+			VBIDE::_ReferencesPtr refs;
+			
+			try {
+				refs = wb->VBProject->References;
+			}
+			catch (const _com_error & e) {
+				if (e.Error() == 0x800A03EC) {
+					log(xFormat(L"Unable to access VBProject for %s, Excel option \"VB project trusted access\" is not probably enabled.\n", wbName));
+					throw std::runtime_error("\n\nUnable to access VB project.\n\nPlease ensure Excel option \"VB project trusted access\" is enabled.");
+				} else {
+					log(xFormat(L"Unable to access VBProject for %s.\n", wbName));
+					throw e;
+				}
+			}
 
 			if (remove) {
 				for (int j = 1; j <= refs->Count; ++j) {
@@ -246,18 +267,18 @@ namespace {
 		VariantClear(&xlApp);
 	}
 
-	void ExcelConnection(
-		const wchar_t * dialogTitle,
-		ExcelAddInManager & addremove_info,
-		int& createdProcessID)
-	{
-		aVect<HWND> handles;
-		EnumWindows(EnumFuncFindExcel, (LPARAM)&handles);
+	//void ExcelConnection(
+	//	const wchar_t * dialogTitle,
+	//	ExcelAddInManager & addremove_info,
+	//	int& createdProcessID)
+	//{
+	//	aVect<HWND> handles;
+	//	EnumWindows(EnumFuncFindExcel, (LPARAM)&handles);
 
-		for (auto&& h : handles) {
-			ExcelConnectionFromHandle(h, dialogTitle, addremove_info, createdProcessID);
-		}
-	}
+	//	for (auto&& h : handles) {
+	//		ExcelConnectionFromHandle(h, dialogTitle, addremove_info, createdProcessID);
+	//	}
+	//}
 
 	aVect<wchar_t> GetUnusedFileName(const wchar_t * fileName) {
 
@@ -617,9 +638,9 @@ namespace {
 
 						ref->Installed = true;
 
-						log(xFormat(L"Fixing links in Excel instance %d...\n", addremove_info.openedApps.Index(openedApp)));
-						FixWorkbooks(app, add_addinPath, log);
-						log(L"Done.\n");
+						//log(xFormat(L"Fixing links in Excel instance %d...\n", addremove_info.openedApps.Index(openedApp)));
+						//FixWorkbooks(app, add_addinPath, log);
+						//log(L"Done.\n");
 					}
 				}
 				break;
@@ -750,7 +771,7 @@ namespace {
 				Excel::_ApplicationPtr app;
 				auto hr = app.CreateInstance(__uuidof(Excel::Application));
 				if (FAILED(hr)) {
-					throw std::runtime_error(xFormat("Unable to create excel instance, hr = 0x%p", hr));
+					throw std::runtime_error(xFormat("Unable to create excel Instance, hr = 0x%p", hr));
 				}
 				version = app->Version.GetBSTR();
 			}
@@ -778,8 +799,7 @@ namespace {
 						}
 						break;
 					}
-				}
-				else {
+				} else {
 					log(xFormat(L"    key \"%s\\%s\" not found.\n", keyBase, key));
 					break;
 				}
@@ -793,63 +813,70 @@ namespace {
 				}
 			}
 
-			keyBase = xFormat(L"Software\\Microsoft\\Office\\%s\\Excel\\Add-in Manager", version);
+			try {
+				keyBase = xFormat(L"Software\\Microsoft\\Office\\%s\\Excel\\Add-in Manager", version);
 
-			HKEY hKey;
-			if (ERROR_SUCCESS != RegOpenKeyExW(HKEY_CURRENT_USER, keyBase, 0, KEY_ALL_ACCESS, &hKey)) {
-				throw std::runtime_error(xFormat("Unable to open registry key \"%S\".", keyBase));
-			}
-
-			KeyReleaser guard;
-			guard.hKey = hKey;
-			guard.initialized = true;
-
-			DWORD lpcMaxValueNameLen;
-			if (ERROR_SUCCESS != RegQueryInfoKeyW(hKey, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &lpcMaxValueNameLen, NULL, NULL, NULL)) {
-				throw std::runtime_error(xFormat("Unable to get registry key \"%S\" information.", keyBase));
-			}
-
-			aVect<wchar_t> buffer(lpcMaxValueNameLen + 1);
-
-			for (DWORD index = 0; ; ++index) {
-
-				for (;;) {
-					auto bufSize = (DWORD)buffer.Count();
-
-					auto status = RegEnumValueW(hKey, index, buffer, &bufSize, NULL, NULL, NULL, NULL);
-					if (status == ERROR_NO_MORE_ITEMS) {
-						buffer.Erase();
-						break;
-					}
-					else if (status == ERROR_MORE_DATA) {
-						buffer.Redim(2 * buffer.Count());
-						continue;
-					}
-					if (status == ERROR_SUCCESS) {
-						break;
-					}
-
-					throw std::runtime_error(xFormat("Error while enumerating registry key \"%S\".", keyBase));
+				HKEY hKey;
+				if (ERROR_SUCCESS != RegOpenKeyExW(HKEY_CURRENT_USER, keyBase, 0, KEY_ALL_ACCESS, &hKey)) {
+					throw std::runtime_error(xFormat("Unable to open registry key \"%S\".", keyBase));
 				}
 
-				if (!buffer) break;
+				KeyReleaser guard;
+				guard.hKey = hKey;
+				guard.initialized = true;
 
-				aVect<wchar_t> name, addinName;
-				SplitPathW(buffer, nullptr, nullptr, &name, nullptr);
-				SplitPathW(add_addinPath, nullptr, nullptr, &addinName, nullptr);
+				DWORD lpcMaxValueNameLen;
+				if (ERROR_SUCCESS != RegQueryInfoKeyW(hKey, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &lpcMaxValueNameLen, NULL, NULL, NULL)) {
+					throw std::runtime_error(xFormat("Unable to get registry key \"%S\" information.", keyBase));
+				}
 
-				if (name && addinName && _wcsicmp(name, addinName) == 0) {
-					log(xFormat(L"    Deleting a reference to \"%s\" in key \"%s\"...\n", addinName, keyBase));
-					auto status = RegDeleteValueW(hKey, buffer);
-					if (ERROR_SUCCESS != status) {
+				aVect<wchar_t> buffer(lpcMaxValueNameLen + 1);
+
+				for (DWORD index = 0; ; ++index) {
+
+					for (;;) {
+						auto bufSize = (DWORD)buffer.Count();
+
+						auto status = RegEnumValueW(hKey, index, buffer, &bufSize, NULL, NULL, NULL, NULL);
+						if (status == ERROR_NO_MORE_ITEMS) {
+							buffer.Erase();
+							break;
+						}
+						else if (status == ERROR_MORE_DATA) {
+							buffer.Redim(2 * buffer.Count());
+							continue;
+						}
+						if (status == ERROR_SUCCESS) {
+							break;
+						}
+
 						throw std::runtime_error(xFormat("Error while enumerating registry key \"%S\".", keyBase));
 					}
-					log(L"    Done.\n");
-					break;
-				}
-			}
 
-			log(L"Done.\n");
+					if (!buffer) break;
+
+					aVect<wchar_t> name, addinName;
+					SplitPathW(buffer, nullptr, nullptr, &name, nullptr);
+					SplitPathW(add_addinPath, nullptr, nullptr, &addinName, nullptr);
+
+					if (name && addinName && _wcsicmp(name, addinName) == 0) {
+						log(xFormat(L"    Deleting a reference to \"%s\" in key \"%s\"...\n", addinName, keyBase));
+						auto status = RegDeleteValueW(hKey, buffer);
+						if (ERROR_SUCCESS != status) {
+							throw std::runtime_error(xFormat("Error while enumerating registry key \"%S\".", keyBase));
+						}
+						log(L"    Done.\n");
+						break;
+					}
+				}
+
+				log(L"Done.\n");
+			}
+			catch (const std::runtime_error & e) {
+				log(xFormat(L"    Error occured while inspecting key Software\\Microsoft\\Office\\%s\\Excel\\Add-in Manager:\n", version));
+				log(xFormat(L"    %S\n", e.what()));
+				log(L"    Error is not critical, installation can carry on.\n");
+			}
 		}
 	}
 }
@@ -876,6 +903,19 @@ void AddExcelAddIn(
 	const wchar_t * dialogTitle = nullptr)
 {
 	RemoveOrAddExcelAddIn(false, addinPath, install, info, nullptr, nullptr, 0, log);
+}
+
+void ExcelConnection(
+	const wchar_t * dialogTitle,
+	ExcelAddInManager & addremove_info,
+	int& createdProcessID)
+{
+	aVect<HWND> handles;
+	EnumWindows(EnumFuncFindExcel, (LPARAM)&handles);
+
+	for (auto&& h : handles) {
+		ExcelConnectionFromHandle(h, dialogTitle, addremove_info, createdProcessID);
+	}
 }
 
 void ExcelAddInManager::Remove(const wchar_t * name, const wchar_t * VBA_macroToRunOnce, HRESULT VBA_macroToRunOnce_okFailure) {

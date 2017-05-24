@@ -1267,7 +1267,8 @@ class aVect {
 					mThis()->ref.allocatedCount = 0;
 				}
 			}
-			else this->Free();
+			//else this->Free();
+			else this->Erase();
 		}
 
 		//TODO
@@ -1625,7 +1626,7 @@ class aVect {
 #endif
 
 		if (size) {
-#if defined(_DEBUG) || defined(MY_DEBUG) 
+#ifdef _DEBUG
 			//if (size == 20024) __debugbreak();
 			this->pData = (T*)((AllocFunc)allocFunc ? allocFunc(size, param) : _malloc_dbg(size, _CLIENT_BLOCK, nullptr, 0)); 
 #else
@@ -2337,7 +2338,9 @@ public:
 		return *this;
 	}
 
+	template <bool grow = false>
 	aVect & Reserve(size_t newCount) {
+		if (grow) newCount += this->count;
 		this->RedimCore<false, true, false, false, false>(newCount);
 		return *this;
 	}
@@ -2382,6 +2385,10 @@ public:
 		return this->count * sizeof(T);
 	}
 
+	size_t AllocatedSizeOf() const {
+		return this->count * sizeof(T);
+	}
+
 	size_t Count() const {
 		return this->count;
 	}
@@ -2409,14 +2416,14 @@ public:
 
 	T & First() {
 #if defined(_DEBUG) || defined(MY_DEBUG) 
-		if (!this->pData || !this->count) MY_ERROR("endBegin sur vecteur vide!");
+		if (!this->pData || !this->count) MY_ERROR("First sur vecteur vide!");
 #endif
 		return this->pData[0];
 	}
 
 	T & First() const {
 #if defined(_DEBUG) || defined(MY_DEBUG) 
-		if (!this->pData || !this->count) MY_ERROR("endBegin sur vecteur vide!");
+		if (!this->pData || !this->count) MY_ERROR("First sur vecteur vide!");
 #endif
 		return this->pData[0];
 	}
@@ -2582,7 +2589,7 @@ public:
 	}
 	
 	template <class U>
-	T * Find(U & el) {
+	T * Find(const U & el) {
 		aVect_static_for(*this, i) {
 			if (this->pData[i] == el) {
 				return &this->pData[i];
@@ -2592,7 +2599,7 @@ public:
 	}
 
 	template <class U>
-	T * Find(U & el, size_t initCount) {
+	T * Find(const U & el, size_t initCount) {
 		auto I = this->count;
 		for (size_t i=initCount; i<I; ++i) {
 			if (this->pData[i] == el) {

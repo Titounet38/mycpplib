@@ -143,6 +143,15 @@ public:
 		size_t lastReplaceOffset = 0,
 		LogFile * pLogFile = nullptr);
 
+
+	void ToSI_COMPILERBUG(
+		SI_PhysicalValue & retVal,
+		ValueAndUnit & pv,
+		bool inv = false,
+		size_t nTry = 0,
+		size_t lastReplaceOffset = 0,
+		LogFile * pLogFile = nullptr);
+
 };
 
 aVect<char> FormatResult(
@@ -172,6 +181,7 @@ class UnitConverter {
 	double offset;
 
 	ConvState PreCompute();
+	ConvState PreCompute_COMPILERBUG();
 
 public:
 
@@ -187,9 +197,11 @@ public:
 	double GetOffset();
 	ConvState State();
 	bool IsReady();
+	bool IsReady_COMPILERBUG();
 	aVect<char> GetError();
 	double operator()(double value);
 	double Convert(double value);
+	double Convert_COMPILERBUG(double value);
 	aVect<double> Convert(const aVect<double>& v);
 	void Convert_InPlace(aVect<double>& v);
 	aVect<char> FullName_From();

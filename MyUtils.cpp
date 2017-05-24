@@ -1,13 +1,11 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-
+#include "xVect.h"
 #include "ctype.h"
+#include "MyUtils.h"
 #include "math.h"
 #include "float.h"
-
-#include "xVect.h"
-#include "MyUtils.h"
 
 #ifdef SIMULATE_NO_WIN32
 #define SIMULATE_NO_WIN32_ENABLED
@@ -59,7 +57,7 @@ char * RetrieveStr(char * & str_orig, bool strict) {
 }
 
 void RemoveUnneededExposantChars(char * ptr1) {
-	//enlève les '+' et les '0' après 'e'
+	//enlÃ¨ve les '+' et les '0' aprÃ¨s 'e'
 	while (true) {
 		if (*(ptr1++) == 'e') {
 			char * ptr2 = ptr1;
@@ -743,6 +741,7 @@ long long File::GetCurrentPosition() {
 }
 
 long long File::GetSize() {
+	if (!*this) this->Open();
 	if (IsWriteMode(openMode)) MY_ERROR("Can't get size on write mode");
 	return fileSize;
 }
@@ -1394,9 +1393,9 @@ LogFile::operator bool() {
 	return (tmpWrite && filePaths) || tmpDisplay;
 }
 
-
 int MyRound(double x) {
-	return (int)(x + 0.5);
+	//return (int)(x + 0.5);
+	return std::lround(x);
 }
 
 bool IsEqualWithPrec(double a, double b, double prec) {
@@ -1603,4 +1602,3 @@ void * MyMemChr(void * ptr, int c, size_t length) {
 	
 	return nullptr;
 }
-

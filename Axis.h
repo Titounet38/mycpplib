@@ -41,6 +41,10 @@
 								  AXIS_OPT_LEGEND    | AXIS_OPT_BORDERS)
 
 
+#define AXISTICKS_OPT_GRID			BIT(1)
+#define AXISTICKS_OPT_MINOR_TICKS   BIT(2)
+#define AXISTICKS_OPT_LABELS        BIT(3)
+
 #define AXIS_COLOR_DEFAULT ((COLORREF)0xFF000000)
 
 
@@ -84,6 +88,20 @@
 #define AXIS_MSG_RCLICK              (WM_APP + 1)
 #define AXIS_MSG_LCLICK              (WM_APP + 2)
 
+namespace Axis_PopupMenuConstants {
+	enum {
+		ZOOM_OUT = 1, DUPLICATE_AXIS, COPY_TO_METAFILE, AUTOFIT, LEGEND, EXPORT2EXCEL, CLOSE,
+		COPY_TO_CLIPBOARD, CMAP_GRAYSCALE, CMAP_JET, CMAP_HSV, CMAP_JET2, CMAP_HOT, CMAP_COSMOS,
+		OPT_INTERPOL, CMAP_SETMIN, CMAP_SETMAX, CMAP_ZOOMFIT, CMAP_RESETZOOM, SERIE_REMOVE,
+		ZOOM_COPY, ZOOM_PASTE, SERIE_COPY, SERIES_COPY, SERIE_ADD_COPY, SERIES_PASTE, SERIE_COPY_DATA,
+		SERIE_SET_COLOR, SERIE_SET_LINEWIDTH, SERIE_SET_LINESTYLE_SOLID, SERIE_SET_LINESTYLE_DOT,
+		SERIE_SET_LINESTYLE_DASH, SERIE_SET_LINESTYLE_DASHDOT, SERIE_SET_LINESTYLE_DASHDOTDOT,
+		MATRIX_ORIENT, PLAN_ORIENT, XLOG, YLOG, XLIN, YLIN, XMIN, XMAX, YMIN, YMAX, SAVEBMP,
+		SUBAXIS_ID, // Must be last
+		USER_IDS = 0x40000000
+	};
+};
+
 struct AxisMsg_Point {
 	double x, y;
 };
@@ -99,7 +117,7 @@ struct AxisSerie;
 //Typdefs
 typedef Axis * AxisHandle;
 typedef void (*AxisDrawCallback) (AxisHandle axis, void * callbacksData);
-typedef bool (*AxisStatusTextCallback)(wchar_t*, size_t, size_t, const wchar_t*, double, double, void*);
+typedef bool (*AxisStatusTextCallback)(wchar_t* buffer, size_t bufferSize, size_t iSerie, const wchar_t* serieName, double x, double y, void* callbacksData);
 typedef void (*AxisCheckZoomCallback)(AxisHandle axis, bool & cancel);
 
 //Functions
@@ -132,6 +150,15 @@ void Axis_SetStatusTextCallback(AxisHandle hAxis,
 							AxisStatusTextCallback callback);
 
 AxisStatusTextCallback Axis_GetStatusTextCallback(Axis * pAxis);
+
+struct Axis_AdditionalPopupMenu {
+	HMENU hMenu = NULL;
+	UINT uFlags = 0;
+	UINT_PTR uIdNewItem = 0;
+	LPCWSTR lpNewItem = NULL;
+};
+
+int Axis_PopupMenu(Axis * pAxis, POINT * pt, aVect<Axis_AdditionalPopupMenu> * additionalMenus = nullptr);
 
 void Axis_AddSerie(AxisHandle pAxis, 
 	const wchar_t * pName,
@@ -247,6 +274,9 @@ void Axis_Move(AxisHandle hAxis, double nx, double ny, double dx, double dy);
 void Axis_SetTitle(AxisHandle hAxis, const wchar_t * title);
 void Axis_xLabel(AxisHandle hAxis, const wchar_t * label);
 void Axis_yLabel(AxisHandle hAxis, const wchar_t * label);
+const wchar_t * Axis_GetTitle(AxisHandle hAxis);
+const wchar_t * Axis_xLabel(AxisHandle hAxis);
+const wchar_t * Axis_yLabel(AxisHandle hAxis, int iAxis = 0);
 void Axis_Refresh(AxisHandle hAxis, bool autoFit = false,  bool toMetaFile = false, bool redraw = true, bool subAxisRecursion = false);
 void Axis_RefreshAsync(AxisHandle pAxis, bool autoFit = false, bool toMetaFile = false, bool redraw = true, bool cancelPreviousJob = false);
 void Axis_DestroyAsync(AxisHandle pAxis);
@@ -254,21 +284,23 @@ void Axis_CloseWindow(AxisHandle hAxis);
 void Axis_Clear(AxisHandle hAxis);
 void Axis_xLim(AxisHandle hAxis, double xMin, double xMax, bool forceAdjustZoom = false);
 void Axis_yLim(AxisHandle hAxis, double yMin, double yMax, bool forceAdjustZoom = false);
-void Axis_yMin(AxisHandle pAxis, double yMin, bool forceAdjustZoom = false);
-void Axis_yMax(AxisHandle pAxis, double yMax, bool forceAdjustZoom = false);
-void Axis_xMin(AxisHandle pAxis, double xMin, bool forceAdjustZoom = false);
-void Axis_xMax(AxisHandle pAxis, double xMax, bool forceAdjustZoom = false);
-void Axis_cMin(AxisHandle pAxis, double cMin);
-void Axis_cMax(AxisHandle pAxis, double cMax);
+void Axis_yMin(AxisHandle hAxis, double yMin, bool forceAdjustZoom = false);
+void Axis_yMax(AxisHandle hAxis, double yMax, bool forceAdjustZoom = false);
+void Axis_xMin(AxisHandle hAxis, double xMin, bool forceAdjustZoom = false);
+void Axis_xMax(AxisHandle hAxis, double xMax, bool forceAdjustZoom = false);
+void Axis_cMin(AxisHandle hAxis, double cMin);
+void Axis_cMax(AxisHandle hAxis, double cMax);
 double Axis_xMin(AxisHandle hAxis, bool orig = true);
 double Axis_xMax(AxisHandle hAxis, bool orig = true);
-double Axis_yMin(AxisHandle hAxis, bool orig = true);
-double Axis_yMax(AxisHandle hAxis, bool orig = true);
+double Axis_yMin(AxisHandle hAxis, bool orig = true, int iAxis = 0);
+double Axis_yMax(AxisHandle hAxis, bool orig = true, int iAxis = 0);
 double Axis_cMin(AxisHandle hAxis, bool orig = true);
 double Axis_cMax(AxisHandle hAxis, bool orig = true);
 void Axis_SetTickLabelsFont(AxisHandle hAxis, wchar_t* fontName, int size, int width = 0);
 void Axis_SetxLabelFont(AxisHandle  hAxis, wchar_t* fontName, int size);
 void Axis_SetyLabelFont(AxisHandle  hAxis, wchar_t* fontName, int size);
+void Axis_SetxOption(Axis * pAxis, DWORD option, bool val);
+void Axis_SetyOption(Axis * pAxis, DWORD option, bool val);
 void Axis_SetTitleFont(AxisHandle  hAxis, wchar_t* fontName, int size);
 void Axis_SetStatusBarFont(AxisHandle  hAxis, wchar_t* fontName, int size);
 void Axis_SetLegendFont(AxisHandle  hAxis, wchar_t* fontName, int size);
@@ -277,6 +309,8 @@ void Axis_SelectPen(AxisHandle axis, HPEN hPen);
 void Axis_AutoFit(AxisHandle hAxis, bool colorAutoFit = true, bool forceAdjustZoom = false);
 void Axis_SelectBrush(AxisHandle axis, HBRUSH  hBrush);
 AxisHandle* Axis_GetAxisPtrVect(HWND hWnd);
+int Axis_SeriesCount(AxisHandle hAxis);
+int Axis_GetSerieSubAxisIndex(AxisHandle hAxis, int i);
 void Axis_SetBackGround(AxisHandle hAxis, COLORREF color);
 void Axis_BeginDraw(AxisHandle hAxis);
 void Axis_EndDraw(AxisHandle hAxis);
@@ -288,13 +322,14 @@ void Axis_CloseAllWindows(bool terminating = false);
 void Axis_EndOfTimes(bool terminating);
 void Axis_Free(AxisHandle hAxis);
 void Axis_SetOption(AxisHandle hAxis, DWORD option, bool val);
-bool AxisTicks_GetOption(AxisHandle hAxis, DWORD option);
+//bool AxisTicks_GetOption(AxisHandle hAxis, DWORD option);
 HWND Axis_GetHwnd(AxisHandle hAxis);
-CRITICAL_SECTION * Axis_GetCriticalSection(Axis * pAxis);
+CRITICAL_SECTION * Axis_GetCriticalSection(Axis * hAxis);
 bool Axis_CloseLastOpenedAxis();
-void Axis_SetDrawCallbackOrder(AxisHandle pAxis, int order = 0);
-int  Axis_GetDrawCallbackOrder(AxisHandle pAxis);
-
+void Axis_SetDrawCallbackOrder(AxisHandle hAxis, int order = 0);
+int  Axis_GetDrawCallbackOrder(AxisHandle hAxis);
+void Axis_ZoomIn(AxisHandle hAxis, double relFactor = 0.1);
+void Axis_ZoomIn(Axis * axis, double xc, double yc, double relFactor = 0.1);
 
 void Axis_LineTo(AxisHandle hAxis, double x, double y);
 void Axis_MoveToEx(AxisHandle hAxis, double x, double y);
@@ -307,6 +342,11 @@ HDC Axis_GetHdc(AxisHandle hAxis);
 //double Axis_CoordTransf_Y_double(AxisHandle hAxis, double y);
 void Axis_CoordTransf(AxisHandle hAxis, double * x, double * y);
 void Axis_CoordTransfDoubleToInt(Axis * axis, long * x_int, long * y_int, double x, double y);
+void Axis_CoordTransfDouble(Axis * axis, double * x, double * y);
+double Axis_CoordTransf_X_double(Axis * axis, double x);
+double Axis_CoordTransf_Y_double(Axis * axis, double y);
+double Axis_CoordTransf_X(Axis * axis, double x);
+double Axis_CoordTransf_Y(Axis * axis, double y);
 AxisDrawCallback Axis_GetDrawCallback(AxisHandle hAxis);
 void Axis_SetRefreshThreadNumber(int nThreads);
 COLORREF Axis_SetPenColor(AxisHandle hAxis, COLORREF color);
@@ -316,7 +356,7 @@ bool Axis_CallbacksDataWaiting(AxisHandle hAxis);
 void Axis_TextOut(AxisHandle hAxis, double left, double top, double right, double bottom, 
 	              wchar_t * pText, int nText, DWORD textAlignment, int isVertical = false,
 				  HFONT hFont = NULL, int isPixel = false);
-void Axis_GetRect(AxisHandle pAxis, RECT * rect);
+void Axis_GetRect(AxisHandle hAxis, RECT * rect);
 
 void Axis_SetColorMap(AxisHandle hAxis, DWORD options);
 void Axis_CreateMatrixView(AxisHandle hAxis, double * m, size_t nRow, size_t nCol, DWORD options);
@@ -349,18 +389,18 @@ void Axis_SetBkMode(AxisHandle hAxis, int mode);
 template <bool trueColor = true, class T>
 COLORREF Axis_GetColorFromColorMap(AxisHandle hAxis, T mv);
 void Axis_ResetZoom(AxisHandle hAxis);
-void Axis_SquareZoom(AxisHandle hAxis);
+void Axis_SquareZoom(AxisHandle hAxis, bool zoom_out = true);
 void Axis_EnforceSquareZoom(AxisHandle hAxis, bool enable);
 size_t Axis_GetID(AxisHandle hAxis);
 void Axis_Zoom(AxisHandle hAxis,double xMin,double xMax,double yMin,double yMax);
 void Axis_SaveImageToFile(AxisHandle hAxis, const wchar_t * filePath, bool onlyLegend = false);
 void Axis_TestFunc(AxisHandle hAxis);
-void Axis_SubAxis_yLim(AxisHandle pAxis, int i, double yMin, double yMax, bool forceAdjustZoom = false);
-void Axis_SubAxis_yMax(Axis * pAxis, int i, double yMax, bool orig = false);
-void Axis_SubAxis_yMin(Axis * pAxis, int i, double yMin, bool orig = false);
-double Axis_SubAxis_yMax(Axis * pAxis, int i, bool forceAdjustZoom = false);
-double Axis_SubAxis_yMin(Axis * pAxis, int i, bool forceAdjustZoom = false);
-void Axis_Export2Excel(Axis * pAxis, bool toClipboard, unsigned __int64 * pOnlyThisOne = nullptr, bool coalesceAbscissa = false);
+void Axis_SubAxis_yLim(AxisHandle hAxis, int i, double yMin, double yMax, bool forceAdjustZoom = false);
+void Axis_SubAxis_yMax(Axis * hAxis, int i, double yMax, bool orig = false);
+void Axis_SubAxis_yMin(Axis * hAxis, int i, double yMin, bool orig = false);
+double Axis_SubAxis_yMax(Axis * hAxis, int i, bool forceAdjustZoom = false);
+double Axis_SubAxis_yMin(Axis * hAxis, int i, bool forceAdjustZoom = false);
+void Axis_Export2Excel(Axis * hAxis, bool toClipboard, unsigned __int64 * pOnlyThisOne = nullptr, bool coalesceAbscissa = false);
 
 #include "AxisClass.h"
 
@@ -610,10 +650,25 @@ public:
 		if (this->axis) this->axis.CloseWindow();
 	}
 };
-//void rien(void) {
-//	coucou.
-//}
 
+struct AutoProgressBar : ProgressBar {
+	PerformanceChronometer chrono;
+	double hiddenDuration;
 
+	AutoProgressBar(
+		const char * title,
+		bool interruptible = false,
+		COLORREF color = RGB(100, 100, 255),
+		bool managed = true,
+		double hiddenDuration = 1)
+		:
+		ProgressBar(title, interruptible, color, managed), hiddenDuration(hiddenDuration)
+	{}
+
+	void SetProgress(double progress) {
+		if (this->chrono.GetSeconds() < this->hiddenDuration) return;
+		ProgressBar::SetProgress(progress);
+	}
+};
 
 #endif

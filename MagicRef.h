@@ -155,12 +155,12 @@ struct MagicCopyDecrementer {
 						}
 					}
 
-					g_MagicPointer_CopyOp.Redim<false>(0);
+					g_MagicPointer_CopyOp.Erase();
 
 					for (auto&& ptrToClear : g_MagicPointer_CopiedTo_ClearList) {
 						*ptrToClear = nullptr;
 					}
-					g_MagicPointer_CopiedTo_ClearList.Redim(0);
+					g_MagicPointer_CopiedTo_ClearList.Erase();
 				}
 			}
 		} 
@@ -709,8 +709,8 @@ public:
 		this->Detach();
 		this->nCachedPointers = 0;
 		this->nCachedFreeList = 0;
-		if (this->pointers) this->pointers.Redim(0);
-		if (this->freeList) this->freeList.Redim(0);
+		if (this->pointers) this->pointers.Erase();
+		if (this->freeList) this->freeList.Erase();
 		this->Copy(that);
 
 #ifdef DBG_CHECK_ACTIVE
@@ -920,8 +920,8 @@ public:
 		this->Detach();
 		this->nCachedPointers = 0;
 		this->nCachedFreeList = 0;
-		if (this->pointers) this->pointers.Redim(0);
-		if (this->freeList) this->freeList.Redim(0);
+		if (this->pointers) this->pointers.Erase();
+		if (this->freeList) this->freeList.Erase();
 		this->Copy(that);
 
 #ifdef DBG_CHECK_ACTIVE

@@ -6,17 +6,15 @@
 #include "conio.h"
 #include "crtdbg.h"
 #include "process.h"
-#include "windows.h"
-#include "Winternl.h"
-
-#include <limits>
-#include "emmintrin.h"
-#include <atomic>
-
 #include "xVect.h"
 #include "WinUtils.h"
 #include "MyUtils.h"
+#include "windows.h"
+#include "Winternl.h"
 #include "AxisCore.h"
+#include <limits>
+#include "emmintrin.h"
+#include <atomic>
 
 //#define DEBUG_AXIS
 //#define DEBUG_THREADS 
@@ -158,12 +156,12 @@ void Axis_EndOfTimes(bool terminating) {
 
 	WNDCLASSA wc;
 
-	if (GetClassInfoA(GetModuleHandle(NULL), "AxisWinClass", &wc)) {
+	if (GetClassInfoA(GetCurrentModuleHandle(), "AxisWinClass", &wc)) {
 
 		//MSG msg;
-		while (!UnregisterClassA("AxisWinClass", GetModuleHandle(NULL))) {
-			DbgStr(L" [0x%p] Unable to unregister class... error %s\n",
-				GetCurrentThreadId(), GetWin32ErrorDescription(GetLastError()));
+		while (!UnregisterClassA("AxisWinClass", GetCurrentModuleHandle())) {
+			DbgStr(L" [0x%p] Unable to unregister class... error 0x%p\n",
+				GetCurrentThreadId(), /*GetWin32ErrorDescription(*/GetLastError()/*)*/);
 			count++;
 			//GetMessageW(&msg, NULL, 0, 0);
 			//TranslateMessage(&msg);
@@ -178,7 +176,7 @@ void Axis_EndOfTimes(bool terminating) {
 
 	aVect_for_inv(g_hRefreshThread, i) {
 		if (g_hEventKillRefreshThread[i]) {
-			DbgStr(L" [0x%p] Axis_EndOfTimes : Calling Axis_CloseRefreshThread n°%d\n", GetCurrentThreadId(), i);
+			DbgStr(L" [0x%p] Axis_EndOfTimes : Calling Axis_CloseRefreshThread nÂ°%d\n", GetCurrentThreadId(), i);
 			Axis_CloseRefreshThread(i);
 		}
 	}
@@ -193,7 +191,7 @@ void Axis_EndOfTimes(bool terminating) {
 	DbgStr(L" [0x%p] Axis_EndOfTimes : Posting WM_CLOSE to AxisMgrWinProc (NULL)\n", GetCurrentThreadId());
 	if (g_hAxisMgrThread) {
 		WIN32_SAFE_CALL(PostMessageW(g_hWndAxisMgrWnd, WM_CLOSE, (WPARAM)g_hEventEndOfTimes, (LPARAM)terminating));
-		if (WaitForSingleObject(g_hEventEndOfTimes, INFINITE) != WAIT_OBJECT_0) MyMessageBox("there %d", GetLastError());
+		if (WaitForSingleObject(g_hEventEndOfTimes, INFINITE) != WAIT_OBJECT_0) DbgStr("there %d", GetLastError());
 		
 		//No, because we want this function be callable from DllMain !
 		//if (WaitForSingleObject(g_hAxisMgrThread, INFINITE) != WAIT_OBJECT_0) DbgStr("Ooopss.. ??");
@@ -212,8 +210,8 @@ void Axis_EndOfTimes(bool terminating) {
 
 	DbgStr(L" [0x%p] Axis_EndOfTimes : Unregistering AxisMgr Class...\n", GetCurrentThreadId());
 
-	if (GetClassInfoA(GetModuleHandle(NULL), "AxisMgr", &wc)) {
-		WIN32_SAFE_CALL(UnregisterClassA("AxisMgr", GetModuleHandle(NULL)));
+	if (GetClassInfoA(GetCurrentModuleHandle(), "AxisMgr", &wc)) {
+		WIN32_SAFE_CALL(UnregisterClassA("AxisMgr", GetCurrentModuleHandle()));
 	}
 		
 	//moved to before closing AxisMgrThread
@@ -350,9 +348,9 @@ bool AxisTicks_GetOption(AxisTicks * pTicks, DWORD option) {
 void Axis_SetOption(Axis * pAxis, DWORD option, bool val) {
 	SET_DWORD_BYTE_MASK(pAxis->options, option, val);
 }
-bool AxisTicks_GetOption(Axis * pAxis, DWORD option) {
-	return (pAxis->options & option) != 0;
-}
+//bool AxisTicks_GetOption(Axis * pAxis, DWORD option) {
+//	return (pAxis->options & option) != 0;
+//}
 
 bool Axis_IsMatrixViewLegend(Axis * pAxis) {
 	return (pAxis->options & AXIS_OPT_ISMATVIEWLEGEND) != 0;
@@ -888,7 +886,7 @@ void Axis_ReposCore(Axis * pAxis,
 		if (Axis_HasMatrixViewLegend(pAxis))
 			Axis_Resize(pAxis->pMatrixView->cMap->legendCmap);
 
-		pAxis->DrawArea_nPixels_dec_x = nPixels_x_dec;//remodifié après Axis_UpdateAdimPos
+		pAxis->DrawArea_nPixels_dec_x = nPixels_x_dec;//remodifiÃ© aprÃ¨s Axis_UpdateAdimPos
 		pAxis->DrawArea_nPixels_dec_y = nPixels_y_dec;
 
 		if (updateAdimPos) 
@@ -1157,6 +1155,12 @@ void Axis_CoordTransf(Axis * axis, double * x, double * y) {
 	(*y) = Axis_CoordTransf_Y(axis, *y);
 }
 
+void Axis_CoordTransfDouble(Axis * axis, double * x, double * y) {
+
+	(*x) = Axis_CoordTransf_X_double(axis, *x);
+	(*y) = Axis_CoordTransf_Y_double(axis, *y);
+}
+
 void Axis_SetLogScaleX(Axis * axis, bool enable) {
 
 	SET_DWORD_BYTE_MASK(axis->options, AXIS_OPT_XLOG, enable);
@@ -1228,8 +1232,10 @@ void Axis_TextOut(Axis * pAxis, double left, double top, double right, double bo
 	}
 
 	if (!isPixel) {
-		Axis_GetCoord(pAxis, &left, &top);
-		Axis_GetCoord(pAxis, &right, &bottom);
+		//Axis_GetCoord(pAxis, &left, &top);
+		//Axis_GetCoord(pAxis, &right, &bottom);
+		Axis_CoordTransf(pAxis, &left, &top);
+		Axis_CoordTransf(pAxis, &right, &bottom);
 	}
 			
 	SetTextAlign(pAxis->hdcDraw, TA_LEFT | TA_TOP);
@@ -1425,6 +1431,32 @@ void Axis_SelectBrush(Axis * axis, HBRUSH  hBrush) {
 			axis->hCurrentBrush = hBrush;
 		}
 	}
+}
+
+const wchar_t * Axis_GetTitle(Axis * pAxis) {
+	return pAxis->pTitle ? pAxis->pTitle->pText : nullptr;
+}
+
+const wchar_t * Axis_xLabel(Axis * pAxis) {
+	return pAxis->pX_Axis ? pAxis->pX_Axis->pText : nullptr;
+}
+
+const wchar_t * Axis_yLabel(Axis * pAxis, int iAxis) {
+
+	auto i = (unsigned)iAxis;
+
+	if (i == 0) return pAxis->pY_Axis ? pAxis->pY_Axis->pText : nullptr;
+
+	--i;
+
+	auto nSubAxis = xVect_Count(pAxis->subAxis);
+
+	if (i < nSubAxis) {
+		auto pY_Axis = pAxis->subAxis[i]->pY_Axis;
+		return pY_Axis ? pY_Axis->pText : nullptr;
+	}
+
+	return nullptr;
 }
 
 void Axis_PolyLine(Axis * pAxis, double * x, double * y, size_t n) {
@@ -3411,8 +3443,6 @@ void Axis_SetCallbacksCleanUpCallback(Axis * pAxis, AxisDrawCallback callback) {
 	pAxis->callbacksCleanUp = callback;
 }
 
-void Axis_SquareZoom(Axis * pAxis);
-
 void Axis_SetDrawCallbackOrder(Axis * pAxis, int order) {
 	pAxis->drawCallbackOrder = order;
 }
@@ -3560,7 +3590,7 @@ void Axis_RefreshWithSubAxis(Axis * pAxis) {
 void Axis_Refresh(Axis * pAxis, bool autoFit, bool toMetaFile, bool redraw, bool subAxisRecursion) {
 
 	if (pAxis->options & AXIS_OPT_ISORPHAN) {
-		DbgStr(" [x0%p] Axis_Refresh, axis is AXIS_OPT_ISORPHAN (id = %d)! Exiting function...", GetCurrentThreadId(), pAxis->id);
+		DbgStr(" [x0%p] Axis_Refresh, axis is AXIS_OPT_ISORPHAN (id = %d)! Exiting function...\n", GetCurrentThreadId(), pAxis->id);
 		return;
 	}
 
@@ -4317,9 +4347,11 @@ void Axis_xLim(Axis * pAxis, double xMin, double xMax, bool forceAdjustZoom) {
 	}
 }
 
-void Axis_yLim(Axis * pAxis, double yMin, double yMax, bool forceAdjustZoom) {
+void Axis_yLim(Axis * pAxis, double yMin, double yMax, bool forceAdjustZoom, int iAxis) {
 	
 	Critical_Section(pAxis->pCs) {
+
+		if (iAxis > 0) pAxis = pAxis->subAxis[--iAxis];
 
 		Axis_SetLim(pAxis, pAxis->xMin_orig, pAxis->xMax_orig, yMin, yMax, forceAdjustZoom);
 	}
@@ -4605,6 +4637,12 @@ void Axis_SetyLabelFont(Axis * pAxis, wchar_t* fontName, int size) {
 	if (fontName) AxisFont_SetName(&pAxis->pY_Axis->font, fontName);
 	if (size>0) AxisFont_SetSize(&pAxis->pY_Axis->font, size);
 }
+void Axis_SetxOption(Axis * pAxis, DWORD option, bool val) {
+	SET_DWORD_BYTE_MASK(pAxis->pX_Axis->pTicks->options, option, val);
+}
+void Axis_SetyOption(Axis * pAxis, DWORD option, bool val) {
+	SET_DWORD_BYTE_MASK(pAxis->pY_Axis->pTicks->options, option, val);
+}
 void Axis_SetTitleFont(Axis * pAxis, wchar_t* fontName, int size) {
 	if (fontName) AxisFont_SetName(&pAxis->pTitle->font, fontName);
 	if (size>0) AxisFont_SetSize(&pAxis->pTitle->font, size);
@@ -4730,6 +4768,32 @@ void Axis_GetAxisPtrVect(Axis ** & axisVect, HWND hWnd) {
 			}
 		}
 	}
+}
+
+int Axis_SeriesCount(Axis * pAxis) {
+	return xVect_Count(pAxis->pSeries);
+}
+
+int Axis_GetSerieSubAxisIndex(Axis * pAxis, int iSerie) {
+
+	if (!pAxis->subAxis) return 0;
+
+	auto count = (int)xVect_Count(pAxis->pSeries);
+
+	if (iSerie < count) {
+		auto id = pAxis->pSeries[iSerie].id;
+
+		xVect_static_for(pAxis->subAxis, i) {
+			auto pSubAxis = pAxis->subAxis[i];
+			xVect_static_for(pSubAxis->pSeries, j) {
+				if (pSubAxis->pSeries[j].id == id) return i+1;
+			}
+		}
+
+		return 0;
+	} 
+
+	return -1;
 }
 
 Axis * Axis_FindFirst(HWND hWnd) {
@@ -5341,8 +5405,12 @@ Axis * Axis_CreateAt(double nx, double ny, double dx,
 	
 	WNDCLASSW ci;
 	
-	if (!GetClassInfoW(GetModuleHandle(NULL), L"AxisWinClass", &ci)) {
-		MyRegisterClass(AxisWindowProc, L"AxisWinClass");
+	{
+		static WinCriticalSection cs;
+		ScopeCriticalSection<WinCriticalSection> guard(cs);
+		if (!GetClassInfoW(GetCurrentModuleHandle(), L"AxisWinClass", &ci)) {
+			MyRegisterClass(AxisWindowProc, L"AxisWinClass");
+		}
 	}
 
 	if (!g_hAxisMgrThread) 
@@ -5741,13 +5809,13 @@ void Axis_SetIcon(HICON hIcon, HICON hIconSmall) {
 
 	WNDCLASSW wc;
 
-	if (!GetClassInfoW(GetModuleHandle(NULL), L"AxisWinClass", &wc)) {
+	if (!GetClassInfoW(GetCurrentModuleHandle(), L"AxisWinClass", &wc)) {
 		MyRegisterClass(AxisWindowProc, L"AxisWinClass");
 	}
 
 	HWND tmpWnd = CreateWindowA(
 		"AxisWinClass", NULL, 0, 0, 0, 0, 0, 
-		HWND_MESSAGE, 0, GetModuleHandle(NULL), NULL);
+		HWND_MESSAGE, 0, GetCurrentModuleHandle(), NULL);
 
 	
 	if (!tmpWnd) {
@@ -6071,10 +6139,12 @@ double Axis_xMin(Axis * pAxis, bool orig) {
 double Axis_xMax(Axis * pAxis, bool orig) {
 	return orig ? pAxis->xMax_orig : pAxis->xMax;
 }
-double Axis_yMin(Axis * pAxis, bool orig) {
+double Axis_yMin(Axis * pAxis, bool orig, int iAxis) {
+	if (iAxis > 0) pAxis = pAxis->subAxis[--iAxis]; 
 	return orig ? pAxis->yMin_orig : pAxis->yMin;
 }
-double Axis_yMax(Axis * pAxis, bool orig) {
+double Axis_yMax(Axis * pAxis, bool orig, int iAxis) {
+	if (iAxis > 0) pAxis = pAxis->subAxis[--iAxis];
 	return orig ? pAxis->yMax_orig : pAxis->yMax;
 }
 
@@ -6194,7 +6264,7 @@ bool Axis_Destroy(Axis * pAxis) {
 
 	Critical_Section(OnlyIfNotLegend(pAxis, g_axisArray.CriticalSection())) {
 
-		AutoCriticalSection acs(pAxis->pCs); 
+		AutoCriticalSection acs(pAxis->pCs, true); 
 
 		bool found = false;
 
@@ -6651,7 +6721,7 @@ void Axis_DrawGridAndTicksCore(
 						}
 			
 						if (!isLog) {
-							//évite 1.4237e-17 à la place de 0
+							//Ã©vite 1.4237e-17 Ã  la place de 0
 							tmp = 0.1 * (max - min) / nPixels;
 							if (currentTick > -tmp && currentTick < tmp &&
 								!(deltaTicks  > -tmp && deltaTicks  < tmp))
@@ -6661,20 +6731,20 @@ void Axis_DrawGridAndTicksCore(
 						if (pTicks->options & AXISTICKS_OPT_LABELS && count > 1) {
 							
 							if (currentTick == 0) {
-								swprintf(c, sizeof(c), L"0");
+								swprintf(c, NUMEL(c), L"0");
 							}
 							else if (abs(currentTick) < 1e6 && abs(currentTick) > 1e-3) {
-								swprintf(c, sizeof(c), L"%.8f", currentTick);
+								swprintf(c, NUMEL(c), L"%.8f", currentTick);
 							}
 							else {
-								swprintf(c, sizeof(c), L"%.10e", currentTick);
+								swprintf(c, NUMEL(c), L"%.10e", currentTick);
 							}
 
 							ptr1 = c;
 							bool expFormat = false;
 							bool hasComa = false;
 
-							//enlève les '+' et les '0' après 'e'
+							//enlÃ¨ve les '+' et les '0' aprÃ¨s 'e'
 							for (;;) {
 								if (*ptr1 == L'.') hasComa = true;
 								if (*(ptr1++) == L'e') {
@@ -7136,6 +7206,8 @@ void Axis_Export2Excel(Axis * pAxis, bool toClipboard, unsigned __int64 * pOnlyT
 			}
 		}
 
+		std::sort(allSeries.begin(), allSeries.end(), [](const AxisSerie* a, const AxisSerie* b) { return a->id < b->id; });
+
 		if (allSeries) {
 			bool firstPass = true;
 
@@ -7268,17 +7340,18 @@ void Axis_Export2Excel(Axis * pAxis, bool toClipboard, unsigned __int64 * pOnlyT
 
 	if (toClipboard) {
 
-		OpenClipboard(NULL);
-		
-		HGLOBAL clipbuffer;
-		wchar_t * buf;
-		EmptyClipboard();
-		clipbuffer = GlobalAlloc(GMEM_DDESHARE, buffer.Count() * sizeof(wchar_t));
-		buf = (wchar_t*)GlobalLock(clipbuffer);
-		wcscpy(buf, LPWSTR(&buffer[0]));
-		GlobalUnlock(clipbuffer);
-		SetClipboardData(CF_UNICODETEXT,clipbuffer);
-		CloseClipboard();
+		CopyToClipBoard(buffer);
+		//OpenClipboard(NULL);
+		//
+		//HGLOBAL clipbuffer;
+		//wchar_t * buf;
+		//EmptyClipboard();
+		//clipbuffer = GlobalAlloc(GMEM_DDESHARE, buffer.Count() * sizeof(wchar_t));
+		//buf = (wchar_t*)GlobalLock(clipbuffer);
+		//wcscpy(buf, LPWSTR(&buffer[0]));
+		//GlobalUnlock(clipbuffer);
+		//SetClipboardData(CF_UNICODETEXT,clipbuffer);
+		//CloseClipboard();
 	}
 	else {
 
@@ -7291,7 +7364,7 @@ void Axis_Export2Excel(Axis * pAxis, bool toClipboard, unsigned __int64 * pOnlyT
 		FILE * hFile = _wfopen(&fileName[0], L"w");
 
 		if (hFile == NULL) {
-			MessageBoxA(NULL, "Impossible d'écrire dans le fichier temporaire", "Erreur", MB_ICONEXCLAMATION);
+			MessageBoxA(NULL, "Impossible d'Ã©crire dans le fichier temporaire", "Erreur", MB_ICONEXCLAMATION);
 			return;
 		}
 
@@ -7386,7 +7459,7 @@ void Axis_Export2Excel_old(Axis * pAxis, bool toClipboard) {
 		FILE * hFile = _wfopen(&fileName[0], L"w");
 
 		if (hFile == NULL) {
-			MessageBoxA(NULL, "Impossible d'écrire dans le fichier temporaire", "Erreur", MB_ICONEXCLAMATION);
+			MessageBoxA(NULL, "Impossible d'Ã©crire dans le fichier temporaire", "Erreur", MB_ICONEXCLAMATION);
 			return;
 		}
 
@@ -7491,14 +7564,14 @@ void AxisMatrixView_ZoomFitCore(AxisMatrixView * pMatrixView) {
 	}
 }
 
-void Axis_SquareZoom(Axis * pAxis) {
+void Axis_SquareZoom(Axis * pAxis, bool zoom_out) {
 
 	double pixX = Axis_GetCoordPixelSizeX(pAxis, pAxis->xMin);
 	double pixY = Axis_GetCoordPixelSizeY(pAxis, pAxis->yMin);
 
 	if (IsEqualWithPrec(pixX, pixY, 1e-5)) return;
 
-	if (pixX > pixY) {
+	if (zoom_out ? pixX > pixY : pixX < pixY) {
 
 		double factor = pixX / pixY;
 
@@ -7509,7 +7582,7 @@ void Axis_SquareZoom(Axis * pAxis) {
 
 		Axis_Zoom(pAxis, pAxis->xMin, pAxis->xMax, yMin - L / 2, yMax + L / 2);
 	}
-	else if (pixX < pixY) {
+	else if (zoom_out ? pixX < pixY : pixX > pixY) {
 
 		double factor = pixY / pixX;
 
@@ -7755,18 +7828,12 @@ void Axis_UpdateSubAxisLegend(Axis * pAxis) {
 	}
 }
 
-void Axis_PopupMenu(Axis * pAxis, POINT * pt) {
+int Axis_PopupMenu(Axis * pAxis, POINT * pt, aVect<Axis_AdditionalPopupMenu> * additionalMenus = nullptr) {
 
-	enum  {	ZOOM_OUT = 1, DUPLICATE_AXIS, COPY_TO_METAFILE, AUTOFIT, LEGEND, EXPORT2EXCEL, CLOSE, 
-			COPY_TO_CLIPBOARD, CMAP_GRAYSCALE, CMAP_JET, CMAP_HSV, CMAP_JET2, CMAP_HOT, CMAP_COSMOS, 
-			OPT_INTERPOL, CMAP_SETMIN, CMAP_SETMAX, CMAP_ZOOMFIT, CMAP_RESETZOOM, SERIE_REMOVE, 
-			ZOOM_COPY, ZOOM_PASTE, SERIE_COPY, SERIES_COPY, SERIE_ADD_COPY, SERIES_PASTE, SERIE_COPY_DATA,
-		    SERIE_SET_COLOR, SERIE_SET_LINEWIDTH, SERIE_SET_LINESTYLE_SOLID, SERIE_SET_LINESTYLE_DOT,
-		    SERIE_SET_LINESTYLE_DASH, SERIE_SET_LINESTYLE_DASHDOT, SERIE_SET_LINESTYLE_DASHDOTDOT, 
-			MATRIX_ORIENT, PLAN_ORIENT, XLOG, YLOG, XLIN, YLIN, XMIN, XMAX, YMIN, YMAX, SAVEBMP,
-		    SUBAXIS_ID // Must be last
-	};
+	//if (additionalMenusID) for (auto&& ids : *additionalMenusID) ids += SUBAXIS_ID + 1;
 
+	using namespace Axis_PopupMenuConstants;
+	
 	Critical_Section(pAxis->pCs) {
 
 		bool wasOrphan = (pAxis->options & AXIS_OPT_ISORPHAN) != 0;
@@ -7838,48 +7905,48 @@ void Axis_PopupMenu(Axis * pAxis, POINT * pt) {
 		if (pAxis->options & AXIS_OPT_XLOG)		isXlog = MF_CHECKED;
 		if (pAxis->options & AXIS_OPT_YLOG)		isYlog = MF_CHECKED;
 
-		AppendMenuA(hMenu, MF_STRING, ZOOM_OUT,   "Reset zoom");
-		AppendMenuA(hMenu, MF_STRING, ZOOM_COPY,  "Copy  zoom");
+		AppendMenuW(hMenu, MF_STRING, ZOOM_OUT,   L"Reset zoom");
+		AppendMenuW(hMenu, MF_STRING, ZOOM_COPY,  L"Copy  zoom");
 
 		if (g_axisZoomBackup.initialized) {
-			AppendMenuA(hMenu, MF_STRING, ZOOM_PASTE, "Paste zoom");
+			AppendMenuW(hMenu, MF_STRING, ZOOM_PASTE, L"Paste zoom");
 		}
 
-		AppendMenuA(hMenu, MF_STRING | hasData
+		AppendMenuW(hMenu, MF_STRING | hasData
 			| (pAxis->options & AXIS_OPT_LEGEND) ? MF_CHECKED : MF_UNCHECKED, LEGEND,
-			"Show legend");
+			L"Show legend");
 
-		AppendMenuA(hMenu, MF_STRING | hasData, AUTOFIT, "Auto fit");
+		AppendMenuW(hMenu, MF_STRING | hasData, AUTOFIT, L"Auto fit");
 
-		AppendMenuA(hMenu, MF_SEPARATOR, NULL, NULL);
+		AppendMenuW(hMenu, MF_SEPARATOR, NULL, NULL);
 
 		if (hasCMap != MF_GRAYED) {
 			hCMapMenu = CreatePopupMenu();
-			AppendMenuA(hMenu, MF_POPUP | hasCMap, (UINT_PTR)hCMapMenu, "ColorMap");
-			AppendMenuA(hCMapMenu, MF_STRING | isCMap_Jet, CMAP_JET, "Jet");
-			AppendMenuA(hCMapMenu, MF_STRING | isCMap_Jet2, CMAP_JET2, "Jet2");
-			AppendMenuA(hCMapMenu, MF_STRING | isCMap_COSMOS, CMAP_COSMOS, "COSMOS");
-			AppendMenuA(hCMapMenu, MF_STRING | isCMap_HSV, CMAP_HSV, "HSV");
-			AppendMenuA(hCMapMenu, MF_STRING | isCMap_Hot, CMAP_HOT, "Hot");
-			AppendMenuA(hCMapMenu, MF_STRING | isCMap_GrayScale, CMAP_GRAYSCALE, "GrayScale");
-			AppendMenuA(hCMapMenu, MF_SEPARATOR, NULL, NULL);
-			AppendMenuA(hCMapMenu, MF_STRING | (pAxis->pMatrixView->options & AXISMATRIXVIEW_OPT_INTERPOL) ? MF_CHECKED : MF_UNCHECKED, OPT_INTERPOL, "Interpolate");
-			AppendMenuA(hCMapMenu, MF_SEPARATOR, NULL, NULL);
-			AppendMenuA(hCMapMenu, MF_STRING /*| isPointInsideMatrix*/, CMAP_SETMIN, "Set min");
-			AppendMenuA(hCMapMenu, MF_STRING /*| isPointInsideMatrix*/, CMAP_SETMAX, "Set max");
-			AppendMenuA(hCMapMenu, MF_STRING | isMatrixVisible, CMAP_ZOOMFIT, "Visible fit");
-			AppendMenuA(hCMapMenu, MF_STRING, CMAP_RESETZOOM, "Reset");
+			AppendMenuW(hMenu, MF_POPUP | hasCMap, (UINT_PTR)hCMapMenu, L"ColorMap");
+			AppendMenuW(hCMapMenu, MF_STRING | isCMap_Jet, CMAP_JET, L"Jet");
+			AppendMenuW(hCMapMenu, MF_STRING | isCMap_Jet2, CMAP_JET2, L"Jet2");
+			AppendMenuW(hCMapMenu, MF_STRING | isCMap_COSMOS, CMAP_COSMOS, L"COSMOS");
+			AppendMenuW(hCMapMenu, MF_STRING | isCMap_HSV, CMAP_HSV, L"HSV");
+			AppendMenuW(hCMapMenu, MF_STRING | isCMap_Hot, CMAP_HOT, L"Hot");
+			AppendMenuW(hCMapMenu, MF_STRING | isCMap_GrayScale, CMAP_GRAYSCALE, L"GrayScale");
+			AppendMenuW(hCMapMenu, MF_SEPARATOR, NULL, NULL);
+			AppendMenuW(hCMapMenu, MF_STRING | (pAxis->pMatrixView->options & AXISMATRIXVIEW_OPT_INTERPOL) ? MF_CHECKED : MF_UNCHECKED, OPT_INTERPOL, L"Interpolate");
+			AppendMenuW(hCMapMenu, MF_SEPARATOR, NULL, NULL);
+			AppendMenuW(hCMapMenu, MF_STRING /*| isPointInsideMatrix*/, CMAP_SETMIN, L"Set min");
+			AppendMenuW(hCMapMenu, MF_STRING /*| isPointInsideMatrix*/, CMAP_SETMAX, L"Set max");
+			AppendMenuW(hCMapMenu, MF_STRING | isMatrixVisible, CMAP_ZOOMFIT, L"Visible fit");
+			AppendMenuW(hCMapMenu, MF_STRING, CMAP_RESETZOOM, L"Reset");
 		}
 
 		if (hasMatView != MF_GRAYED) {
 			hMatOrientMenu = CreatePopupMenu();
-			AppendMenuA(hMenu, MF_POPUP | hasMatView, (UINT_PTR)hMatOrientMenu, "Orientation");
-			AppendMenuA(hMatOrientMenu, MF_STRING | isMatrixOrient, MATRIX_ORIENT, "Matrix");
-			AppendMenuA(hMatOrientMenu, MF_STRING | (isMatrixOrient ? 0 : MF_CHECKED), PLAN_ORIENT, "Plan");
+			AppendMenuW(hMenu, MF_POPUP | hasMatView, (UINT_PTR)hMatOrientMenu, L"Orientation");
+			AppendMenuW(hMatOrientMenu, MF_STRING | isMatrixOrient, MATRIX_ORIENT, L"Matrix");
+			AppendMenuW(hMatOrientMenu, MF_STRING | (isMatrixOrient ? 0 : MF_CHECKED), PLAN_ORIENT, L"Plan");
 		}
 
 		if (hasCMap != MF_GRAYED || hasMatView != MF_GRAYED) {
-			AppendMenuA(hMenu, MF_SEPARATOR, NULL, NULL);
+			AppendMenuW(hMenu, MF_SEPARATOR, NULL, NULL);
 		}
 
 		aVectEx<HMENU, g_AxisHeap> hYaxisMenus;
@@ -7887,54 +7954,54 @@ void Axis_PopupMenu(Axis * pAxis, POINT * pt) {
 		hXaxisMenu = CreatePopupMenu();
 		hYaxisMenu = CreatePopupMenu();
 			
-		AppendMenuA(hMenu, MF_POPUP, (UINT_PTR)hXaxisMenu, "x axis");
-		AppendMenuA(hMenu, MF_POPUP, (UINT_PTR)hYaxisMenu, "y axis");
-		AppendMenuA(hXaxisMenu, MF_STRING, XMIN, "Set min");
-		AppendMenuA(hXaxisMenu, MF_STRING, XMAX, "Set max");
-		AppendMenuA(hXaxisMenu, MF_STRING | (isXlog ? 0 : MF_CHECKED), XLIN, "Linear");
-		AppendMenuA(hXaxisMenu, MF_STRING | isXlog, XLOG, "Log");
+		AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hXaxisMenu, L"x axis");
+		AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hYaxisMenu, L"y axis");
+		AppendMenuW(hXaxisMenu, MF_STRING, XMIN, L"Set min");
+		AppendMenuW(hXaxisMenu, MF_STRING, XMAX, L"Set max");
+		AppendMenuW(hXaxisMenu, MF_STRING | (isXlog ? 0 : MF_CHECKED), XLIN, L"Linear");
+		AppendMenuW(hXaxisMenu, MF_STRING | isXlog, XLOG, L"Log");
 
 		if (xVect_Count(pAxis->subAxis)) {
 
 			hYaxisMenus.Push(CreatePopupMenu());
 
 			AppendMenuW(hYaxisMenu, MF_POPUP, (UINT_PTR)hYaxisMenus.Last(), xFormat(L"Axis 1%s", pAxis->pY_Axis->pText ? xFormat(L" \"%s\"", pAxis->pY_Axis->pText) : L""));
-			AppendMenuA(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 0, "Set min");
-			AppendMenuA(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 1, "Set max");
+			AppendMenuW(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 0, L"Set min");
+			AppendMenuW(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 1, L"Set max");
 
 			xVect_static_for(pAxis->subAxis, i) {
 				auto pSubAxis = pAxis->subAxis[i];
 				hYaxisMenus.Push(CreatePopupMenu());
 				AppendMenuW(hYaxisMenu, MF_POPUP, (UINT_PTR)hYaxisMenus.Last(), xFormat(L"Axis %d%s", i+2, pSubAxis->pY_Axis->pText ? xFormat(L" \"%s\"", pSubAxis->pY_Axis->pText) : L""));
-				AppendMenuA(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 2*(i+1) + 0, "Set min");
-				AppendMenuA(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 2*(i+1) + 1, "Set max");
+				AppendMenuW(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 2*(i+1) + 0, L"Set min");
+				AppendMenuW(hYaxisMenus.Last(), MF_STRING, SUBAXIS_ID + 2*(i+1) + 1, L"Set max");
 			}
 		} else {
-			AppendMenuA(hYaxisMenu, MF_STRING, YMIN, "Set min");
-			AppendMenuA(hYaxisMenu, MF_STRING, YMAX, "Set max");
-			AppendMenuA(hYaxisMenu, MF_STRING | (isYlog ? 0 : MF_CHECKED), YLIN, "Linear");
-			AppendMenuA(hYaxisMenu, MF_STRING | isYlog, YLOG, "Log");
+			AppendMenuW(hYaxisMenu, MF_STRING, YMIN, L"Set min");
+			AppendMenuW(hYaxisMenu, MF_STRING, YMAX, L"Set max");
+			AppendMenuW(hYaxisMenu, MF_STRING | (isYlog ? 0 : MF_CHECKED), YLIN, L"Linear");
+			AppendMenuW(hYaxisMenu, MF_STRING | isYlog, YLOG, L"Log");
 		}
 			
 
-		AppendMenuA(hMenu, MF_SEPARATOR, NULL, NULL);
+		AppendMenuW(hMenu, MF_SEPARATOR, NULL, NULL);
 
 
-		AppendMenuA(hMenu, MF_STRING, DUPLICATE_AXIS, "Duplicate");
-		AppendMenuA(hMenu, MF_STRING, COPY_TO_METAFILE, "Copy image");
-		AppendMenuA(hMenu, MF_STRING | hasData, COPY_TO_CLIPBOARD, "Copy data");
-		AppendMenuA(hMenu, MF_STRING | hasData, EXPORT2EXCEL, "Export to Excel");
-		AppendMenuA(hMenu, MF_STRING, SAVEBMP, "Save as bmp file");
+		AppendMenuW(hMenu, MF_STRING, DUPLICATE_AXIS, L"Duplicate");
+		AppendMenuW(hMenu, MF_STRING, COPY_TO_METAFILE, L"Copy image");
+		AppendMenuW(hMenu, MF_STRING | hasData, COPY_TO_CLIPBOARD, L"Copy data");
+		AppendMenuW(hMenu, MF_STRING | hasData, EXPORT2EXCEL, L"Export to Excel");
+		AppendMenuW(hMenu, MF_STRING, SAVEBMP, L"Save as bmp file");
 
-		AppendMenuA(hMenu, MF_SEPARATOR, NULL, NULL);
+		AppendMenuW(hMenu, MF_SEPARATOR, NULL, NULL);
 
-		AppendMenuA(hMenu, MF_STRING, CLOSE, "Close");
+		AppendMenuW(hMenu, MF_STRING, CLOSE, L"Close");
 
-		AppendMenuA(hMenu, MF_SEPARATOR, NULL, NULL);
+		AppendMenuW(hMenu, MF_SEPARATOR, NULL, NULL);
 
 		if (pHooveredSerie) {
 
-			serieTxt.sprintf(L"Serie n°%llu, \"%s\"", pHooveredSerie->id, pHooveredSerie->pName);
+			serieTxt.sprintf(L"Serie nÂ°%llu, \"%s\"", pHooveredSerie->id, pHooveredSerie->pName);
 			if (serieTxt.Count() > 50) {
 				serieTxt.Redim(50).Last() = 0;
 				serieTxt.Last(-1) = L'"';
@@ -7947,31 +8014,38 @@ void Axis_PopupMenu(Axis * pAxis, POINT * pt) {
 
 			AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hSerieMenu, serieTxt);
 
-			AppendMenuA(hSerieMenu, MF_STRING, SERIE_REMOVE, "Remove");
-			AppendMenuA(hSerieMenu, MF_STRING, SERIE_COPY_DATA, "Copy data");
-			AppendMenuA(hSerieMenu, MF_STRING, SERIE_COPY, "Copy");
-			AppendMenuA(hSerieMenu, MF_STRING, SERIE_ADD_COPY, "Add to copies");
-			AppendMenuA(hSerieMenu, MF_SEPARATOR, NULL, NULL);
-			AppendMenuA(hSerieMenu, MF_STRING, SERIE_SET_COLOR, "Color");
-			AppendMenuA(hSerieMenu, MF_STRING, SERIE_SET_LINEWIDTH, "Line width");
+			AppendMenuW(hSerieMenu, MF_STRING, SERIE_REMOVE, L"Remove");
+			AppendMenuW(hSerieMenu, MF_STRING, SERIE_COPY_DATA, L"Copy data");
+			AppendMenuW(hSerieMenu, MF_STRING, SERIE_COPY, L"Copy");
+			AppendMenuW(hSerieMenu, MF_STRING, SERIE_ADD_COPY, L"Add to copies");
+			AppendMenuW(hSerieMenu, MF_SEPARATOR, NULL, NULL);
+			AppendMenuW(hSerieMenu, MF_STRING, SERIE_SET_COLOR, L"Color");
+			AppendMenuW(hSerieMenu, MF_STRING, SERIE_SET_LINEWIDTH, L"Line width");
 
 			hLineStyle = CreatePopupMenu();
 
 			auto style = pHooveredSerie->pen.lopnStyle;
 
-			AppendMenuA(hSerieMenu, MF_POPUP,  (UINT_PTR)hLineStyle, "Line style");
-			AppendMenuA(hLineStyle, MF_STRING | (style == PS_SOLID      ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_SOLID,   "Solid");
-			AppendMenuA(hLineStyle, MF_STRING | (style == PS_DASH       ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DASH,    "Dash");
-			AppendMenuA(hLineStyle, MF_STRING | (style == PS_DOT        ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DOT,     "Dot");
-			AppendMenuA(hLineStyle, MF_STRING | (style == PS_DASHDOT    ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DASHDOT, "Dash-dot");
-			AppendMenuA(hLineStyle, MF_STRING | (style == PS_DASHDOTDOT ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DASHDOTDOT,    "Dash-dot-dot");
+			AppendMenuW(hSerieMenu, MF_POPUP,  (UINT_PTR)hLineStyle, L"Line style");
+			AppendMenuW(hLineStyle, MF_STRING | (style == PS_SOLID      ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_SOLID,   L"Solid");
+			AppendMenuW(hLineStyle, MF_STRING | (style == PS_DASH       ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DASH,    L"Dash");
+			AppendMenuW(hLineStyle, MF_STRING | (style == PS_DOT        ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DOT,     L"Dot");
+			AppendMenuW(hLineStyle, MF_STRING | (style == PS_DASHDOT    ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DASHDOT, L"Dash-dot");
+			AppendMenuW(hLineStyle, MF_STRING | (style == PS_DASHDOTDOT ? MF_CHECKED : 0), SERIE_SET_LINESTYLE_DASHDOTDOT,    L"Dash-dot-dot");
 		}
 
-		AppendMenuA(hMenu, MF_STRING, SERIES_COPY, "Copy all series");
+		AppendMenuW(hMenu, MF_STRING, SERIES_COPY, L"Copy all series");
 
 		if (g_seriesCopy) {
-			if (g_seriesCopy.Count() == 1) AppendMenuA(hMenu, MF_STRING, SERIES_PASTE, "Paste serie");
-			else AppendMenuA(hMenu, MF_STRING, SERIES_PASTE, "Paste series");
+			if (g_seriesCopy.Count() == 1) AppendMenuW(hMenu, MF_STRING, SERIES_PASTE, L"Paste serie");
+			else AppendMenuW(hMenu, MF_STRING, SERIES_PASTE, L"Paste series");
+		}
+
+		if (additionalMenus && *additionalMenus) {
+			AppendMenuW(hMenu, MF_SEPARATOR, NULL, NULL);
+			for (auto&& m : *additionalMenus) {
+				AppendMenuW(hMenu, m.uFlags, m.uIdNewItem, m.lpNewItem);
+			}
 		}
 
 		ClientToScreen(pAxis->hWnd, pt);
@@ -8359,7 +8433,9 @@ void Axis_PopupMenu(Axis * pAxis, POINT * pt) {
 			}
 			default: {
 				//subaxis min/max 
-				if (val >= SUBAXIS_ID) {
+				if (additionalMenus && val >= USER_IDS) {
+					/* do nothing */
+				} else if (val >= SUBAXIS_ID) {
 					val -= SUBAXIS_ID;
 					auto iAxis = val / 2;
 					auto min = val % 2 == 0;
@@ -8398,8 +8474,17 @@ void Axis_PopupMenu(Axis * pAxis, POINT * pt) {
 		if (pAxis->options & AXIS_OPT_ISORPHAN && !wasOrphan) {
 			DbgStr(L" [0x%p] axis (id = %d) became AXIS_OPT_ISORPHAN during Axis_popupmenu ! Destroying axis...\n", GetCurrentThreadId(), pAxis->id);
 			Axis_Destroy(pAxis);
+			return 0;
 		}
+
+		if (additionalMenus) {
+			if (val >= USER_IDS) return val;
+			return 0;
+		}
+		return val;
 	}
+
+	return 0;	//happy compiler
 }
 
 BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam) {
@@ -8535,6 +8620,58 @@ struct AxisLockGuard {
 	}
 };
 
+void Axis_ZoomIn(Axis * axis, double xc, double yc, double relFactor) {
+
+	double xMin = axis->xMin;
+	double xMax = axis->xMax;
+	double yMin = axis->yMin;
+	double yMax = axis->yMax;
+
+	auto dx = xMax - xMin;
+	auto dy = yMax - yMin;
+
+	auto xr = (xc - xMin) / dx;
+	auto yr = (yc - yMin) / dy;
+
+	dx *= (1 - relFactor);
+	dy *= (1 - relFactor);
+
+	xMin = xc - xr * dx;
+	xMax = xc + (1 - xr) * dx;
+	yMin = yc - yr * dy;
+	yMax = yc + (1 - yr) * dy;
+
+	axis->xMin = xMin;
+	axis->xMax = xMax;
+	axis->yMin = yMin;
+	axis->yMax = yMax;
+
+	//xMin = xMin*(1 - relFactor*sign(xMin));
+	//xMax = xMax*(1 + relFactor*sign(xMax));
+	//yMin = yMin*(1 - relFactor*sign(yMin));
+	//yMax = yMax*(1 + relFactor*sign(yMax));
+
+	//if (xMin == xMax) xMax = 1 + xMin;
+	//if (yMin == yMax) yMax = 1 + yMin;
+
+	//axis->xMin = xMin;
+	//axis->xMax = xMax;
+	//axis->yMin = yMin;
+	//axis->yMax = yMax;
+
+	//if (axis->options & AXIS_OPT_SQUAREZOOM) {
+	//	Axis_SquareZoom(axis);
+	//}
+}
+
+void Axis_ZoomIn(Axis * axis, double relFactor) {
+
+	auto xc = 0.5*(axis->xMin + axis->xMax);
+	auto yc = 0.5*(axis->yMin + axis->yMax);
+
+	return Axis_ZoomIn(axis, xc, yc, relFactor);
+}
+
 LRESULT CALLBACK AxisWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 
     PAINTSTRUCT ps;
@@ -8550,16 +8687,55 @@ LRESULT CALLBACK AxisWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	bool found = false;
 
 	switch (message) {
-		//case AXIS_MSG_RCLICK : {
-		//	tmp = new_xAsprintf("AXIS_MSG_RCLICK : %f, %f", *(double*)wParam, *(double*)lParam);
-		//	MessageBox(hWnd, tmp, __FUNCTION__, MB_ICONINFORMATION);
-		//	break;
-		//}
-		//case AXIS_MSG_LCLICK : {
-		//	tmp = new_xAsprintf("AXIS_MSG_LCLICK : %f, %f", *(double*)wParam, *(double*)lParam);
-		//	MessageBox(hWnd, tmp, __FUNCTION__, MB_ICONINFORMATION);
-		//	break;
-		//}
+		case WM_MOUSEWHEEL: {
+
+			auto zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+			auto fwKeys = GET_KEYSTATE_WPARAM(wParam);
+			auto xPos = GET_X_LPARAM(lParam);
+			auto yPos = GET_Y_LPARAM(lParam);
+
+			POINT pt;
+			pt.x = xPos;
+			pt.y = yPos;
+
+			if (ScreenToClient(hWnd, &pt)) {
+				Critical_Section(g_axisArray.CriticalSection()) {
+					aVect_static_for(g_axisArray, i) {
+						aVect_static_for(g_axisArray, i) {
+							pAxis = g_axisArray[i];
+							if (pAxis->hWnd == hWnd) {
+								if (Axis_IsDrawArea(pAxis, &pt, true)) {
+
+									auto x = Axis_GetCoordX(pAxis, pt.x);
+									auto y = Axis_GetCoordY(pAxis, pt.y);
+
+									if (zDelta > 0) {
+										Axis_ZoomIn(pAxis, x, y, -0.1);
+										Axis_RefreshAsync(pAxis);
+									} else {
+										Axis_ZoomIn(pAxis, x, y, 0.1);
+										Axis_RefreshAsync(pAxis);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			break;
+		}
+		case AXIS_MSG_RCLICK : {
+			//tmp = new_xAsprintf("AXIS_MSG_RCLICK : %f, %f", *(double*)wParam, *(double*)lParam);
+			//MessageBox(hWnd, tmp, __FUNCTION__, MB_ICONINFORMATION);
+			//break;
+			return SendMessageW(GetParent(hWnd), message, wParam, lParam);
+		}
+		case AXIS_MSG_LCLICK : {
+			//tmp = new_xAsprintf("AXIS_MSG_LCLICK : %f, %f", *(double*)wParam, *(double*)lParam);
+			//MessageBox(hWnd, tmp, __FUNCTION__, MB_ICONINFORMATION);
+			//break;
+			return SendMessageW(GetParent(hWnd), message, wParam, lParam);
+		}
 		case WM_DESTROY: {
 			
 			DbgStr(L" [0x%p] AxisWinProc : WM_DESTROY\n", GetCurrentThreadId());
@@ -8841,7 +9017,7 @@ LRESULT CALLBACK AxisWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 			bool opt_adim_mode_after = (pAxis->options & AXIS_OPT_ADIM_MODE) != 0;
 			if (opt_adim_mode_before != opt_adim_mode_after) {
-				DbgStr(L" [0x%p] Axis n°%d adim mode option changed from %d to %d !!\n", 
+				DbgStr(L" [0x%p] Axis nÂ°%d adim mode option changed from %d to %d !!\n", 
 					GetCurrentThreadId(),
 					pAxis->id, opt_adim_mode_before, opt_adim_mode_after);
 			}
@@ -9720,8 +9896,8 @@ AxisClass&  AxisClass::xLim(double xMin, double xMax, bool forceAdjustZoom) {
 	return *this;
 }
 
-AxisClass&  AxisClass::yLim(double yMin, double yMax, bool forceAdjustZoom) {
-	Axis_yLim(hAxis, yMin, yMax, forceAdjustZoom);
+AxisClass&  AxisClass::yLim(double yMin, double yMax, bool forceAdjustZoom, int iAxis) {
+	Axis_yLim(hAxis, yMin, yMax, forceAdjustZoom, iAxis);
 	return *this;
 }
 
@@ -9768,12 +9944,12 @@ double AxisClass::xMax(bool orig) {
 	return Axis_xMax(hAxis, orig);
 }
 
-double AxisClass::yMin(bool orig) {
-	return Axis_yMin(hAxis, orig);
+double AxisClass::yMin(bool orig, int iAxis) {
+	return Axis_yMin(hAxis, orig, iAxis);
 }
 
-double AxisClass::yMax(bool orig) {
-	return Axis_yMax(hAxis, orig);
+double AxisClass::yMax(bool orig, int iAxis) {
+	return Axis_yMax(hAxis, orig, iAxis);
 }
 
 double AxisClass::cMin(bool orig) {

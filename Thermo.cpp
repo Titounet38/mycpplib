@@ -6,7 +6,7 @@
 
 const double R = 8314.4598;	// J/K/kmol
 //const double R = 8.3144598;// J/K/mol
-const double NaN = std::numeric_limits<double>::quiet_NaN();
+static const double NaN = std::numeric_limits<double>::quiet_NaN();
 
 double Equation6(double(&coef)[5], double x) {
 	// A + B/T +C*lnT + D*T^E
@@ -347,7 +347,7 @@ PlotFunctionCallbackReturnValue PlotFunc(RhoH_Flash_ProblemType & p, void *) {
 	p->history_P.Push(p[0] / 1e5);
 	p->history_T.Push(p[1] - 273.15);
 
-	p.axes.profiles.AddSerie(p->history_T, p->history_P).xLabel(L"T [°C]").yLabel(L"P [Bar]");
+	p.axes.profiles.AddSerie(p->history_T, p->history_P).xLabel(L"T [\B0C]").yLabel(L"P [Bar]");
 
 	return NEWTONSOLVER_REFRESHASYNC;
 }

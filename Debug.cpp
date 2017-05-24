@@ -247,7 +247,7 @@ bool manualDbgBreak(
 		CoreDump(errorMsg, exceptPtr, GetCurrentThreadId(), fileStr, line, funcStr);
 	}
 
-#endif 
+#endif
 
 	if (!allowContinue || result == IDYES) {
 		printf("_STOP_\n");

@@ -203,10 +203,11 @@ class AutoCriticalSection {
 	int recursion;
 public:
 	AutoCriticalSection();
-	AutoCriticalSection(CRITICAL_SECTION * ptr);
+	AutoCriticalSection(CRITICAL_SECTION * ptr, bool enter);
 	~AutoCriticalSection();
 	AutoCriticalSection& Set(CRITICAL_SECTION * ptr);
 	AutoCriticalSection& Enter(CRITICAL_SECTION * ptr);
+	bool TryEnter();
 	AutoCriticalSection& Enter();
 	AutoCriticalSection& Leave();
 	AutoCriticalSection& Destroy();

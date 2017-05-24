@@ -2,8 +2,11 @@
 #include "WinCritSect.h"
 
 AutoCriticalSection::AutoCriticalSection() : pCs(nullptr), recursion(0) {}
-AutoCriticalSection::AutoCriticalSection(CRITICAL_SECTION * ptr) : pCs(ptr), recursion(1) {
-	EnterCriticalSection(ptr);
+AutoCriticalSection::AutoCriticalSection(CRITICAL_SECTION * ptr, bool enter) : pCs(ptr), recursion(0) {
+	if (enter) {
+		++recursion;
+		EnterCriticalSection(ptr);
+	}
 }
 AutoCriticalSection::~AutoCriticalSection() {
 	Destroy();
@@ -36,6 +39,26 @@ AutoCriticalSection& AutoCriticalSection::Enter() {
 	if (recursion == 0) EnterCriticalSection(pCs);
 	recursion++;
 	return *this;
+}
+
+bool AutoCriticalSection::TryEnter() {
+
+	if (!pCs) MY_ERROR("Critical section not set");
+
+	bool retVal;
+
+	if (recursion == 0) {
+		retVal = !!TryEnterCriticalSection(pCs);
+		if (!retVal) {
+			int a = 0;
+		}
+	} else {
+		retVal = true;
+	}
+
+	if (retVal) recursion++;
+
+	return retVal;
 }
 
 AutoCriticalSection& AutoCriticalSection::Leave() {

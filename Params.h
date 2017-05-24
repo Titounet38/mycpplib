@@ -1,5 +1,6 @@
 
 #include "xVect.h"
+#include "MagicRef.h"
 
 class Param {
 
@@ -27,7 +28,7 @@ public:
 };
 
 
-class ParamNode {
+class ParamNode : MagicTarget<ParamNode> {
 
 private:
 
@@ -49,9 +50,12 @@ public:
 	//	this->name.FixRef(data);
 	//}
 
+	MagicCopyDecrementer copyDecrementer;
+
 	ParamNode(ParamNode & that) = delete;
 
 	ParamNode(ParamNode && that) :
+		MagicTarget<ParamNode>(std::move(that)),
 		params(std::move(that.params)),
 		parent(that.parent),
 		children(std::move(that.children)),
@@ -75,16 +79,17 @@ public:
 
 	void CheckTree();
 	void Compact();
+	void DiscardNodes(mVect<mVect<wchar_t>> & fullPathArray);
 	void UnaliasNodeNames();
 	void Inherit();
-	void ComputeFormulas();
+	void ComputeFormulas(bool thisNodeAndNoChildrenRecurse = false);
 };
 
 
 void WriteParams(aVect<wchar_t> & fileName, const aVect<Param> & params);
 mVect<Param> GetInheritedParams(const aVect<wchar_t> & path, bool stopAtFirst = false, aVect<char> & specialComments = aVect<char>(), aVect<aVect<char> > * pParamReferences = nullptr);
 mVect<Param> GetParams(mVect< mVect<wchar_t> > & fullPathArray, bool stopAtFirst = false, aVect<char> & hasSpecialComment = aVect<char>(), aVect<aVect<char> > * pParamReferences = nullptr);
-mVect<Param> GetParams(aVect<wchar_t>& path, bool stopAtFirst = false, aVect<char> & hasSpecialComment = aVect<char>());
+mVect<Param> GetParams(const aVect<wchar_t>& path, bool stopAtFirst = false, aVect<char> & hasSpecialComment = aVect<char>());
 mVect< mVect<char> > ParamNamesFromTemplate(const aVect<wchar_t>& templateFile);
 aVect<wchar_t> WriteInstanceFromTemplate(
 	//const aVect<wchar_t>& instanceFile,
@@ -92,9 +97,11 @@ aVect<wchar_t> WriteInstanceFromTemplate(
     const aVect<wchar_t>& templateFile,
 	const aVect<Param>& parameters);
 
+void GetParamBranch(ParamNode & tree, const wchar_t * file, const wchar_t * basePath, mVect< mVect<char> > * paraList = nullptr, bool compactTree = true);
+
 enum class AppendParamValueToFileNames { no, yes, parentFolder };
 
-void GetParamTree(ParamNode & tree, const aVect<wchar_t>& path, mVect< mVect<char> > * paraList = nullptr, bool compactTree = true, bool displayBruteTree = true, bool displayFinalTree = true);
+mVect<mVect<wchar_t>> GetParamTree(ParamNode & tree, const aVect<wchar_t>& path, mVect< mVect<char> > * paraList = nullptr, bool compactTree = true, bool displayBruteTree = true, bool displayFinalTree = true);
 mVect< mVect<wchar_t> > WriteTemplateFromParamTree(
 	ParamNode & node, 
 	const aVect<wchar_t> & folder,
@@ -107,7 +114,7 @@ Param & FindParam(mVect<Param> & params, const char * pName);
 Param * FindParam(mVect<Param> & params, const char * pName, bool nullIfNotFound);
 void PrintParams(const aVect<Param> & params);
 
-void MakeCases(aVect<char> & casesFolder, aVect<char> & makeCasesFolder);
+void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aVect<wchar_t> & makeCasesFolder, bool putAutoParamsAtLeaves = true);
 void AutoInstanciateTemplate(const aVect<wchar_t> & templateFilePath, bool compactTree = true,
 	AppendParamValueToFileNames appendParamValueToFileNames = AppendParamValueToFileNames::yes);
 

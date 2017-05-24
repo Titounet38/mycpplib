@@ -190,23 +190,45 @@ HDC Axis_GetHdc(Axis * pAxis);
 void AxisSerieMarker_Destroy(AxisSerieMarker * & pMarker);
 void Axis_AutoFit(Axis * pAxis, bool colorAutoFit = true, bool forceAdjustZoom = false);
 void AxisMatrixView_CreateColorMap(AxisMatrixView * pMatrixView, DWORD options);
+void Axis_SquareZoom(Axis *  hAxis, bool zoom_out = true);
 
 AxisSerieMarker * AxisSerieMarker_Create(Axis * pAxis, size_t iSerie,
 	DWORD markerType, COLORREF color, 
 	unsigned short nPixel, unsigned short lineWidth);
 
-double Axis_xMin(Axis * pAxis, bool orig = true);
-double Axis_xMax(Axis * pAxis, bool orig = true);
-double Axis_yMin(Axis * pAxis, bool orig = true);
-double Axis_yMax(Axis * pAxis, bool orig = true);
+//double Axis_xMin(Axis * pAxis, bool orig = true);
+//double Axis_xMax(Axis * pAxis, bool orig = true);
+double Axis_yMin(Axis * pAxis, bool orig = true, int iAxis = 0);
+double Axis_yMax(Axis * pAxis, bool orig = true, int iAxis = 0);
 
 void Axis_xLim(Axis * hAxis, double xMin, double xMax, bool forceAdjustZoom = false);
-void Axis_yLim(Axis * hAxis, double yMin, double yMax, bool forceAdjustZoom = false);
+void Axis_yLim(Axis * hAxis, double yMin, double yMax, bool forceAdjustZoom = false, int iAxis = 0);
 void Axis_yMin(Axis * pAxis, double yMin, bool forceAdjustZoom = false);
 void Axis_yMax(Axis * pAxis, double yMax, bool forceAdjustZoom = false);
 void Axis_xMin(Axis * pAxis, double xMin, bool forceAdjustZoom = false);
 void Axis_xMax(Axis * pAxis, double xMax, bool forceAdjustZoom = false);
 void Axis_Export2Excel(Axis * pAxis, bool toClipboard, unsigned __int64 * pOnlyThisOne = nullptr, bool coalesceAbscissa = false);
+
+namespace Axis_PopupMenuConstants {
+	enum {
+		ZOOM_OUT = 1, DUPLICATE_AXIS, COPY_TO_METAFILE, AUTOFIT, LEGEND, EXPORT2EXCEL, CLOSE,
+		COPY_TO_CLIPBOARD, CMAP_GRAYSCALE, CMAP_JET, CMAP_HSV, CMAP_JET2, CMAP_HOT, CMAP_COSMOS,
+		OPT_INTERPOL, CMAP_SETMIN, CMAP_SETMAX, CMAP_ZOOMFIT, CMAP_RESETZOOM, SERIE_REMOVE,
+		ZOOM_COPY, ZOOM_PASTE, SERIE_COPY, SERIES_COPY, SERIE_ADD_COPY, SERIES_PASTE, SERIE_COPY_DATA,
+		SERIE_SET_COLOR, SERIE_SET_LINEWIDTH, SERIE_SET_LINESTYLE_SOLID, SERIE_SET_LINESTYLE_DOT,
+		SERIE_SET_LINESTYLE_DASH, SERIE_SET_LINESTYLE_DASHDOT, SERIE_SET_LINESTYLE_DASHDOTDOT,
+		MATRIX_ORIENT, PLAN_ORIENT, XLOG, YLOG, XLIN, YLIN, XMIN, XMAX, YMIN, YMAX, SAVEBMP,
+		SUBAXIS_ID, // Must be last
+		USER_IDS = 0x40000000
+	};
+};
+
+struct Axis_AdditionalPopupMenu {
+	HMENU hMenu;
+	UINT uFlags;
+	UINT_PTR uIdNewItem;
+	LPCWSTR lpNewItem;
+};
 
 HWND CreateManagedAxisWindow(
 	wchar_t * strTitle, 

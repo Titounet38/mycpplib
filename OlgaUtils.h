@@ -102,8 +102,11 @@ struct Olga_OutputVariable {
 	aVect<char> sectionIndex;
 	aVect<char> unit;
 	aVect<char> description;
+	aVect<char> userLegend;
 	bool isBoundaryValues;
 	bool isGeometry;
+	int userAxisIdx = 0;
+	double userScaleFactor = 1;
 
 	Olga_OutputVariable(
 		const char * name, 
@@ -581,11 +584,17 @@ struct Olga_TrendExtractor {
 	Olga_TrendExtractor& AddVariable(
 		const char * name, 
 		const char * type = nullptr,
-		const char * typeName = nullptr,
-		const char * unit = nullptr)
+		const char * branchName = nullptr,
+		const char * pipeName = nullptr,
+		const char * sectionIndex = nullptr)
 	{
 
-		this->variables.Push(name, type, typeName, unit);
+		if (type && type[0] == 0) type = nullptr;
+		if (branchName && branchName[0] == 0) branchName = nullptr;
+		if (pipeName && pipeName[0] == 0) pipeName = nullptr;
+		if (sectionIndex && sectionIndex[0] == 0) sectionIndex = nullptr;
+
+		this->variables.Push(name, type, branchName, pipeName, sectionIndex);
 		return *this;
 	}
 
@@ -630,6 +639,8 @@ struct Olga_TrendExtractor {
 			nullptr, false, &types, &branchNames, &pipeNames,
 			&sectionIndices, &units, &descriptions);
 
+		if (!values) return aVect<Olga_Trend>();//throw MyException("");
+
 		mVect<double> time = values.Pop(0);
 		
 		varNames.Remove(0);
@@ -664,7 +675,9 @@ struct Olga_TrendExtractor {
 class Olga_ProfileExtractor {
 
 	aVect<char> filePath;
+public:
 	aVect<Olga_OutputVariable> variables;
+private:
 	bool displayProgressBar = true;
 
 	static void ToCentroids(
@@ -822,6 +835,17 @@ public:
 	}
 
 	aVect<Olga_Profile> Extract() {
+
+		for (auto&& v : this->variables) {
+			v.branchName.Trim();
+			v.description.Trim();
+			v.name.Trim();
+			v.pipeName.Trim();
+			v.sectionIndex.Trim();
+			v.type.Trim();
+			v.unit.Trim();
+		}
+
 		return std::move(this->GetVariables<false>(this->displayProgressBar));
 	}
 };

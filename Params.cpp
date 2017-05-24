@@ -125,17 +125,20 @@ bool IsFormula(const char * str) {
 }
 
 //if paramReferences, only accumulate references and copy token into value
-void TranslateValue(
+bool TranslateValue(
 	aVect<char> & value, 
 	const char * token, 
 	mVect<Param> & params,
 	aVect<aVect<char> > * pParamReferences = nullptr) {
 
-	if (!token || token[0] == 0) return;
+	if (!token || token[0] == 0) return true;
 
 	size_t I = strlen(token);
 	aVect<bool> parsed(I);
 	parsed.Set(false);
+
+	static WinCriticalSection cs;
+	ScopeCriticalSection<WinCriticalSection> guard(cs);
 
 	static aVect<char> buffer;
 
@@ -194,6 +197,9 @@ void TranslateValue(
 									case '?' : 
 									case '*' :
 									case '/' :
+									case '>' :
+									case '<' :
+									case '=' :
 									case '^' : {
 										nOperandToEval = 2;
 										if (curOp > 0) MY_ERROR(aVect<char>("too many operation : ${%s}", (char*)buffer));
@@ -262,9 +268,15 @@ void TranslateValue(
 							}
 
 							switch(op[0]) {
-								case '+': result = NiceFloat(value1 + value2);break;
-								case '-': result = NiceFloat(value1 - value2);break;
-								case '*': result = NiceFloat(value1 * value2);break;
+								case '>': result = NiceFloat(value1 > value2); break;
+								case '<': result = NiceFloat(value1 < value2); break;
+								case '=': {
+									result = value1 == value2 ? "1" : "0"; 
+									break;
+								}
+								case '+': result = NiceFloat(value1 + value2); break;
+								case '-': result = NiceFloat(value1 - value2); break;
+								case '*': result = NiceFloat(value1 * value2); break;
 								case '/': {
 									//if (value2 == 0) MY_ERROR(aVect<char>("division by 0 while computing %s", token));
 									result = NiceFloat(value1 / value2);break;
@@ -297,10 +309,14 @@ void TranslateValue(
 									break;
 								}
 								case '?': {
-									if (op[1] != ':') MY_ERROR("'?' without ':'");
-									if (value1) result.Copy(operand2);
-									else result.Copy(operand3);
-
+									if (value1) {
+										result.Copy(operand2);
+									} else {
+										if (op[1] != ':') {
+											return false;
+										}
+										result.Copy(operand3);
+									}
 									break;
 								}
 								case 0: {
@@ -324,11 +340,13 @@ void TranslateValue(
 							}
 
 							if (IsFormula(translatedString)) {
-								TranslateValue(value, translatedString, params);
+								if (!TranslateValue(value, translatedString, params)) {
+									return false;
+								}
 							}
 							else value.Steal(translatedString);
 
-							return;
+							return true;
 						}
 					}
 					break;
@@ -339,6 +357,7 @@ void TranslateValue(
 
 abortTranslation:
 	value.Copy(token);
+	return true;
 }
 
 mVect<Param> GetParams(
@@ -350,6 +369,9 @@ mVect<Param> GetParams(
 	mVect<Param> parameters;
 	CharPointer line, token, token2;
 
+	static WinCriticalSection cs;
+	ScopeCriticalSection<WinCriticalSection> guard(cs);
+
     aVect_static_for(fullPathArray, i) {
 
         WinFile f((wchar_t*)fullPathArray[i], "rb");
@@ -357,8 +379,8 @@ mVect<Param> GetParams(
 		if (!f.Open()) MY_ERROR("Fichier introuvable");
 
         while (line = f.GetLine()) {
-			token2 = RetrieveStr<'#'>(line, true);
-			bool hasSpecialComment = line && specialComments ? strstr(line, specialComments)!=nullptr : false;
+			token2 = RetrieveStr<'#'>(line, true).Trim();
+			bool hasSpecialComment = token2 && line && specialComments ? strstr(line, specialComments)!=nullptr : false;
             if ((token = RetrieveStr<'='>(token2)) || hasSpecialComment) {
 				if (token.Trim() && !strchr(token, ' ') && !strchr(token, '\t') || hasSpecialComment) {
 					if (token2.Trim() || hasSpecialComment) {
@@ -371,6 +393,12 @@ mVect<Param> GetParams(
 
 						static aVect<char> value;
 						TranslateValue(value, token2, parameters, pParamReferences);
+
+						////DBG
+						//if (StrEqual(token, "FlowlineGeometry")) {
+						//	if (value[0] != '{') __debugbreak();
+						//}
+						////!DBG
 
 						if (!found) {
 							Param P;
@@ -473,25 +501,28 @@ void ParamNode::RemoveChild(size_t i) {
 }
 
 void ParamNode::Free() {
-	ParamNode::~ParamNode();
+ParamNode::~ParamNode();
 }
 
 void ParamNode::Print(char * prefix) {
+
+	static WinCriticalSection cs;
+	ScopeCriticalSection<WinCriticalSection> guard(cs);
 
 	static size_t recLvl;
 	aVect<char> nextPrefix, blanks;
 
 	size_t len = strlen(prefix);
 	if (len >= 4) {
-		for (size_t i=0; i<len-4; ++i) putchar(prefix[i]);
-		printf("+---"); 
+		for (size_t i = 0; i < len - 4; ++i) putchar(prefix[i]);
+		printf("+---");
 	}
-	
+
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	SAFE_CALL(GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi));
 	int consoleWidth = csbi.dwMaximumWindowSize.X;
 
-	xPrintf(L"%s\n", name); 
+	xPrintf(L"%s\n", name);
 
 	size_t nAdditionalBlanks = 8;
 
@@ -505,8 +536,12 @@ void ParamNode::Print(char * prefix) {
 		int fileNameSize = GraphemCount(params[i].fromFile);
 		int nBlanks = spaceLeft - (fileNameSize);
 		int fileNameDec = nBlanks > 0 ? 0 : -nBlanks + 3;
+		fileNameDec = Min(fileNameDec, Max(1, fileNameSize - 3));
+
 		blanks.Redim((nBlanks > 0 ? nBlanks : 0) + nAdditionalBlanks).Set(' ').Last() = 0;
+
 		wprintf(L"%S %S%s\n", (char*)blanks, fileNameDec ? "..." : "", (wchar_t*)params[i].fromFile + fileNameDec);
+		int a = 0;
 	}
 	recLvl++;
 
@@ -524,10 +559,10 @@ void ParamNode::CheckTreeCore() {
 	mVect_static_for(children, i) {
 		children[i].CheckTreeCore();
 		if (children[i].parent != this) {
-			 MY_ERROR(aVect<char>("Child of Node (%S) : Node (%S) child (%S) parent (%S) != Node (%S)",
-				 (wchar_t*)parent->name,
-				 (wchar_t*)name, (wchar_t*)children[i].name,
-				 (wchar_t*)children[i].parent->name, (wchar_t*)name));
+			MY_ERROR(aVect<char>("Child of Node (%S) : Node (%S) child (%S) parent (%S) != Node (%S)",
+				(wchar_t*)parent->name,
+				(wchar_t*)name, (wchar_t*)children[i].name,
+				(wchar_t*)children[i].parent->name, (wchar_t*)name));
 		}
 	}
 }
@@ -535,15 +570,15 @@ void ParamNode::CheckTreeCore() {
 void ParamNode::CheckTree() {
 
 	ParamNode * ptr = this;
-	while(ptr->parent) ptr = ptr->parent;
+	while (ptr->parent) ptr = ptr->parent;
 
 	ptr->CheckTreeCore();
 
 }
 
-void ParamNode::ComputeFormulas() {
+void ParamNode::ComputeFormulas(bool thisNodeAndNoChildrenRecurse) {
 
-	if (this->children) {
+	if (!thisNodeAndNoChildrenRecurse && this->children) {
 		mVect_static_for(this->children, i) {
 			this->children[i].ComputeFormulas();
 		}
@@ -555,11 +590,30 @@ void ParamNode::ComputeFormulas() {
 			aVect<char> value;
 			mVect_static_for(this->params, i) {
 				if (IsFormula(this->params[i].value)) {
-					TranslateValue(value, this->params[i].value, this->params); 
-					this->params[i].value.Steal(value);
-					if (IsFormula(this->params[i].value)) {
-						TranslateValue(value, this->params[i].value, this->params); 
-						nRemainingFormulas++;
+					if (TranslateValue(value, this->params[i].value, this->params)) {
+						this->params[i].value.Steal(value);
+						if (IsFormula(this->params[i].value)) {
+							TranslateValue(value, this->params[i].value, this->params);
+							nRemainingFormulas++;
+						}
+					}
+					else {
+						auto prevCount = this->params.Count();
+						auto removedParam = this->params.Pop(i);
+						this->Inherit();
+						//MY_ASSERT(prevCount == this->params.Count());
+						if (prevCount != this->params.Count()) {
+							MY_ERROR(xFormat(
+								"Parameter not found in parent nodes : %s\n"
+								"current node: %S",
+								removedParam.name, this->folder));
+						}
+						auto tmp = this->params.Pop();
+						this->params.Insert(i, std::move(tmp));
+						this->parent->ComputeFormulas(true);
+						this->ComputeFormulas(true);
+						MY_ASSERT(!IsFormula(this->params[i].value));
+						int a = 0;
 					}
 				}
 			}
@@ -586,6 +640,94 @@ void ParamNode::ComputeFormulas() {
 			oldNremainingFormulas = nRemainingFormulas;
 		}
 	}
+}
+
+void ParamNode_KeepOnlyOneNode(ParamNode * discard_all_other_cases_node) {
+
+	auto parent = discard_all_other_cases_node->parent;
+
+	if (!parent) return;
+
+	mVect_for_inv(parent->children, i) {
+		auto&& c = parent->children[i];
+		if (&c == discard_all_other_cases_node) {
+			/* ok */
+		} else {
+			parent->RemoveChild(i);
+		}
+	}
+		
+	ParamNode_KeepOnlyOneNode(parent);
+
+}
+
+void ParamNode_DiscardNodes(
+	ParamNode * node, mVect<mVect<wchar_t>> & fullPathArray, 
+	MagicPointer<ParamNode> & discard_all_other_cases_node,
+	int recursionLevel, int pass) {
+
+	if (pass == 0) {
+		mVect_for_inv(node->children, i) {
+
+			auto&& c = node->children[i];
+
+			if (auto p = FindParam(c.params, "__DISCARD_ALL_OTHER_CASES__", true)) {
+				if (IsNumber(p->value) && atof(p->value) == 1) {
+					if (discard_all_other_cases_node) MY_ERROR("multiple __DISCARD_ALL_OTHER_CASES__ = 1 cases");
+					discard_all_other_cases_node = &c;
+				}
+			}
+
+			ParamNode_DiscardNodes(&c, fullPathArray, discard_all_other_cases_node, recursionLevel + 1, 0);
+		}
+
+		if (recursionLevel == 0 && discard_all_other_cases_node) {
+			ParamNode_KeepOnlyOneNode(discard_all_other_cases_node);
+			mVect_for_inv(fullPathArray, j) {
+				if (!wcsstr(fullPathArray[j].GetDataPtr(), discard_all_other_cases_node->folder.GetDataPtr())) {
+					fullPathArray.Remove(j);
+				}
+			}
+		}
+	} else {
+		if (node->children) {
+			mVect_for_inv(node->children, i) {
+
+				auto&& c = node->children[i];
+
+				if (auto p = FindParam(c.params, "__DISCARD_CASE__", true)) {
+					if (IsNumber(p->value) && atof(p->value) == 1) {
+						mVect_for_inv(fullPathArray, j) {
+							if (wcsstr(fullPathArray[j].GetDataPtr(), c.folder.GetDataPtr())) {
+								fullPathArray.Remove(j);
+							}
+						}
+						node->RemoveChild(i);
+						continue;
+					}
+				}
+
+				ParamNode_DiscardNodes(&c, fullPathArray, discard_all_other_cases_node, recursionLevel + 1, 1);
+			}
+			if (!node->children) { // has become a leaf, remove
+				mVect_for_inv(node->parent->children, i) {
+					if (&node->parent->children[i] == node) {
+						node->parent->RemoveChild(i);
+						node = nullptr;//just to be safe, as node has just been deleted
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+void ParamNode::DiscardNodes(mVect<mVect<wchar_t>> & fullPathArray) {
+
+	MagicPointer<ParamNode> discard_all_other_cases_node = nullptr;
+
+	ParamNode_DiscardNodes(this, fullPathArray, discard_all_other_cases_node, 0, 0);
+	ParamNode_DiscardNodes(this, fullPathArray, discard_all_other_cases_node, 0, 1);
 }
 
 void ParamNode::Compact() {
@@ -704,7 +846,7 @@ mVect<Param> GetInheritedParams(
 	aVect<char> & specialComments,
 	aVect<aVect<char> > * pParamReferences) {
 
-	static mVect< mVect<wchar_t> > fullPathArray;
+	/*static */mVect< mVect<wchar_t> > fullPathArray;
 
 	if (GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) {
 		aVect<wchar_t> paramFileName("Params.txt"), autoParamFileName("AutoParams.txt");
@@ -720,7 +862,7 @@ mVect<Param> GetInheritedParams(
     return GetParams(fullPathArray, stopAtFirst, specialComments, pParamReferences);
 }
 
-mVect<Param> GetParams(aVect<wchar_t>& path, bool stopAtFirst, aVect<char> & specialComments) {
+mVect<Param> GetParams(const aVect<wchar_t>& path, bool stopAtFirst, aVect<char> & specialComments) {
 
 	if (IsFileReadable(path)) {
 
@@ -772,7 +914,7 @@ void WriteParams(aVect<wchar_t> & fileName, const aVect<Param> & params) {
 	WinFile f(fileName, "w");
 
 	if (!f.Open()) {
-		MY_ERROR(aVect<char>("Impossible de créer le fichier %S.", (wchar_t*)fileName));
+		MY_ERROR(aVect<char>("Impossible de cr\E9er le fichier %S.", (wchar_t*)fileName));
 	}
 
 	WriteParamsCore(f, params);
@@ -860,7 +1002,7 @@ aVect<wchar_t> WriteInstanceFromTemplate(
     WinFile output(instanceFile, "w");
 
     if (!input.Open())  MY_ERROR("Fichier template introuvable");
-    if (!output.Open()) MY_ERROR("Impossible de créer le fichier d'instance");
+    if (!output.Open()) MY_ERROR("Impossible de cr\E9er le fichier d'instance");
 
     CharPointer line, token;
     aVect<char> lineToWrite, blanks;
@@ -914,7 +1056,7 @@ aVect<wchar_t> WriteInstanceFromTemplate(
 					aVect<wchar_t> includeFile = RetrieveStr<')'>(command);
 					includeFile.Trim<L'\"'>();
 					auto files = WalkBackPathForFile(instanceFile, includeFile, nullptr, true);
-					if (!files) MY_ERROR("include file not found");
+					if (!files) MY_ERROR(xFormat("include file not found: \"%s\"", includeFile));
 					WinFile f(files[0]);
 					lineToWrite.Erase();
 					for (;;) {
@@ -927,6 +1069,7 @@ aVect<wchar_t> WriteInstanceFromTemplate(
 				}
 				
 				if (!lineToWrite) skipLine = true;
+				else lineParsed = false;
 			}
 			else {
 				while (token = RetrieveStr<' ', ',', '\t'>(line)) {
@@ -994,8 +1137,130 @@ break_while_2:;
 
 	return std::move(instanceFile);
 }
+//fullPath = fullPathArray[i]
+void GetParamBranchCore(ParamNode & tree, const aVect<wchar_t> & fullPath, const wchar_t * path, mVect<mVect<char>> * paraList, const wchar_t * fileName = L"Params.txt") {
 
-void GetParamTreeCore(
+	auto autoFileName = "AutoParams.txt";
+
+	aVect<wchar_t> tmpPath, tmpFileName;
+	SplitPathW(fullPath, nullptr, &tmpPath, &tmpFileName, nullptr);
+	auto branchParamFiles = WalkBackPathForFile(tmpPath, autoFileName, fileName); 
+
+	//remove branchParamFiles[j] if not a descendant of path
+	mVect_for_inv(branchParamFiles, j) {
+		aVect<wchar_t> branchParamFilePath;
+		SplitPathW(branchParamFiles[j], nullptr, &branchParamFilePath, nullptr, nullptr);
+		if (wcslen(branchParamFilePath) < wcslen(path)) branchParamFiles.Remove(j);
+	}
+
+	ParamNode * pCurNode = &tree;
+	mVect<Param> params;
+
+	mVect< mVect<char> > emptyParaList;
+
+	//add to paraList all param references in formulas ${...}
+	if (!paraList) paraList = &emptyParaList;
+	aVect<aVect<char> > paramReferences;
+
+	mVect_for_inv(branchParamFiles, j) {
+
+		params = GetInheritedParams(branchParamFiles[j].ToAvect(), true, aVect<char>(), &paramReferences);
+
+		aVect_static_for(paramReferences, k) {
+			bool found = false;
+			aVect_static_for(*paraList, l) {
+				if (strcmp_caseInsensitive(paramReferences[k], (*paraList)[l]) == 0) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) paraList->Push(paramReferences[k]);
+		}
+
+		bool found = false;
+		if (paraList) {
+			aVect_static_for(*paraList, k) {
+				mVect_static_for(params, l) {
+					if (strcmp_caseInsensitive((*paraList)[k], params[l].name) == 0) {
+						found = true;
+						goto dbl_break;
+					}
+				}
+			}
+		dbl_break:
+			if (!found) continue;
+		}
+
+		mVect<wchar_t> fPath, fName;
+
+		while (true) {
+			aVect<wchar_t> curPath;
+			SplitPathW(branchParamFiles[j], nullptr, &fPath, &fName, nullptr);
+			SplitPathW(fPath, nullptr, &curPath, &fName, nullptr);
+
+			if (strcmp_caseInsensitive(pCurNode->folder, curPath) != 0
+				&& strcmp_caseInsensitive(pCurNode->folder, fPath) != 0) {
+				aVect<wchar_t> str_n(fPath), str_np1;
+				while (true) {
+					SplitPathW(str_n, nullptr, &str_np1, nullptr, nullptr);
+					if (strcmp_caseInsensitive(pCurNode->folder, str_np1) == 0) {
+						break;
+					}
+					str_n.Steal(str_np1);
+				}
+				params.Free();
+				str_n.sprintf(L"%s\\.", (wchar_t*)str_n);
+				if (j == branchParamFiles.Count() - 1) {
+					branchParamFiles.Push(str_n);
+				}
+				else {
+					branchParamFiles.Insert(j + 1, str_n);
+				}
+				j++;
+				//break;
+			}
+			else break;
+		}
+
+		found = false;
+
+		if (strcmp_caseInsensitive(pCurNode->folder, fPath) == 0) {
+			found = true;
+		}
+		else {
+			mVect_static_for(pCurNode->children, k) {
+				if (strcmp_caseInsensitive(pCurNode->children[k].folder, fPath) == 0) {
+					found = true;
+					pCurNode = &pCurNode->children[k];
+					break;
+				}
+			}
+		}
+
+		if (!found) {
+			ParamNode * ptr = pCurNode;
+			while (ptr->parent) {
+				if (strcmp_caseInsensitive(ptr->parent->folder, fPath) == 0) {
+					found = true;
+					break;
+				}
+				ptr = ptr->parent;
+			}
+		}
+
+		if (!found) {
+			pCurNode->AddChildren(params);
+			pCurNode->children.Last().folder.Reference(fPath);
+			pCurNode->children.Last().name.Reference(fName);
+			pCurNode = &pCurNode->children.Last();
+		}
+		else {
+			MergeParams(pCurNode->params, params);
+		}
+	}
+}
+
+mVect<mVect<wchar_t>> GetParamTreeCore(
 	ParamNode & tree, 
 	aVect<wchar_t> path, 
 	mVect< mVect<char> > * paraList, 
@@ -1004,7 +1269,7 @@ void GetParamTreeCore(
 	bool displayFinalTree = true)
 {
 
-	aVect<wchar_t> buffer, fileName("Params.txt"), autoFileName("AutoParams.txt");
+	aVect<wchar_t> buffer, fileName = L"Params.txt";
 	mVect< mVect<wchar_t> > fullPathArray, branchParamFiles;
 	aVect<wchar_t> fName, fPath;
 
@@ -1015,7 +1280,7 @@ void GetParamTreeCore(
 
 	if (strcmp_caseInsensitive(fName, fileName) == 0) path.Copy(fPath);
 
-	fullPathArray = WalkForwardPathForFile(path, fileName, autoFileName);
+	fullPathArray = WalkForwardPathForFile(path, fileName);
 
 	if (!fullPathArray) MY_ERROR("Fichier \"Params.txt\" introuvable");
 
@@ -1023,122 +1288,8 @@ void GetParamTreeCore(
 
 		wprintf(L"Gathering parameters for \"%s\"... ", (wchar_t*)fullPathArray[i]);
 
-		aVect<wchar_t> tmpPath, tmpFileName;
-		SplitPathW(fullPathArray[i], nullptr, &tmpPath, &tmpFileName, nullptr);
-		branchParamFiles = WalkBackPathForFile(tmpPath, autoFileName, fileName);
+		GetParamBranchCore(tree, fullPathArray[i].ToAvect(), fPath, paraList, fileName);
 		
-		//remove branchParamFiles[j] if not a descendant of path
-		mVect_for_inv(branchParamFiles, j) {
-			aVect<wchar_t> branchParamFilePath;
-			SplitPathW(branchParamFiles[j], nullptr, &branchParamFilePath, nullptr, nullptr);
-			if (wcslen(branchParamFilePath) < wcslen(path)) branchParamFiles.Remove(j);
-		}
-
-		ParamNode * pCurNode = &tree;
-		mVect<Param> params;
-
-		mVect< mVect<char> > emptyParaList;
-
-		//add to paraList all param references in formulas ${...}
-		if (!paraList) paraList = &emptyParaList;
-		aVect<aVect<char> > paramReferences;
-
-		mVect_for_inv(branchParamFiles, j) {
-			
-			params = GetInheritedParams(branchParamFiles[j].ToAvect(), true, aVect<char>(), &paramReferences);
-
-			aVect_static_for(paramReferences, k) {
-				bool found = false;
-				aVect_static_for(*paraList, l) {
-					if (strcmp_caseInsensitive(paramReferences[k], (*paraList)[l])==0) {
-						found = true;
-						break;
-					}
-				}
-				if (!found) paraList->Push(paramReferences[k]);
-			}
-
-			bool found = false;
-			if (paraList) {
-				aVect_static_for(*paraList, k) {
-					mVect_static_for(params, l) {
-						if (strcmp_caseInsensitive((*paraList)[k], params[l].name) == 0) {
-							found = true;
-							goto dbl_break;
-						}
-					}
-				}
-dbl_break:
-				if (!found) continue;
-			}
-
-			mVect<wchar_t> fPath, fName;
-
-			while(true) {
-				aVect<wchar_t> curPath;
-				SplitPathW(branchParamFiles[j], nullptr, &fPath, &fName, nullptr);
-				SplitPathW(fPath, nullptr, &curPath, &fName, nullptr);
-
-				if (strcmp_caseInsensitive(pCurNode->folder, curPath) != 0
-					&& strcmp_caseInsensitive(pCurNode->folder, fPath) != 0) {
-					aVect<wchar_t> str_n(fPath), str_np1;
-					while(true) {
-						SplitPathW(str_n, nullptr, &str_np1, nullptr, nullptr);
-						if (strcmp_caseInsensitive(pCurNode->folder, str_np1) == 0) {
-							break;
-						}
-						str_n.Steal(str_np1);
-					}
-					params.Free();
-					str_n.sprintf(L"%s\\.", (wchar_t*)str_n);
-					if (j == branchParamFiles.Count() - 1) {
-						branchParamFiles.Push(str_n);
-					}
-					else {
-						branchParamFiles.Insert(j + 1, str_n);
-					}
-					j++;
-					//break;
-				}
-				else break;
-			}
-
-			found = false;
-
-			if (strcmp_caseInsensitive(pCurNode->folder, fPath) == 0) {
-				found = true;
-			}
-			else {
-				mVect_static_for(pCurNode->children, k) {
-					if (strcmp_caseInsensitive(pCurNode->children[k].folder, fPath) == 0) {
-						found = true;
-						pCurNode = &pCurNode->children[k];
-						break;
-					}
-				}
-			}
-			
-			if (!found) {
-				ParamNode * ptr = pCurNode;
-				while(ptr->parent) {
-					if (strcmp_caseInsensitive(ptr->parent->folder, fPath) == 0) {
-						found = true;
-						break;
-					}
-					ptr = ptr->parent;
-				}
-			}
-
-			if (!found) {
-				pCurNode->AddChildren(params);
-				pCurNode->children.Last().folder.Reference(fPath);
-				pCurNode->children.Last().name.Reference(fName);
-				pCurNode = &pCurNode->children.Last();
-			}
-			else {
-				MergeParams(pCurNode->params, params);
-			}
-		}
 		printf("Done\n");
 	}
 
@@ -1165,13 +1316,19 @@ dbl_break:
 	tree.ComputeFormulas();
 	printf("Done\n");
 
+	printf("Discarding nodes... ");
+	tree.DiscardNodes(fullPathArray);
+	printf("Done\n");
+
 	if (displayFinalTree) {
 		printf("Final parameter tree:\n");
 		tree.Print();
 	}
+
+	return fullPathArray;
 }
 
-void GetParamTree(
+mVect<mVect<wchar_t>> GetParamTree(
 	ParamNode & tree, 
 	const aVect<wchar_t>& path, 
 	mVect< mVect<char> > * paraList, 
@@ -1184,7 +1341,33 @@ void GetParamTree(
 	tree.name.sprintf("Root");
 	tree.AddChildren(mVect<Param>());
 
-	GetParamTreeCore(tree.children[0], path, paraList, compactTree, displayBruteTree, displayFinalTree);
+	return GetParamTreeCore(tree.children[0], path, paraList, compactTree, displayBruteTree, displayFinalTree);
+}
+
+void GetParamBranch(
+	ParamNode & tree,
+	const wchar_t * file,
+	const wchar_t * basePath,
+	mVect< mVect<char> > * paraList,
+	bool compactTree) {
+
+	tree.Free();
+	//tree.name.sprintf("Root");
+	//tree.AddChildren(mVect<Param>());
+
+	tree.name.sprintf("Cases");
+	tree.folder.Copy(basePath);
+
+	GetParamBranchCore(tree, file, basePath, paraList);
+
+	if (compactTree) {
+		tree.Compact();
+	}
+
+	tree.UnaliasNodeNames();
+	tree.Inherit();
+	tree.ComputeFormulas();
+
 }
 
 mVect< mVect<wchar_t> > WriteTemplateFromParamTree(
@@ -1219,8 +1402,10 @@ mVect< mVect<wchar_t> > WriteTemplateFromParamTree(
 			if (appendParamValueToFileNames == AppendParamValueToFileNames::yes ||
 				appendParamValueToFileNames == AppendParamValueToFileNames::parentFolder) {
 				while (ptr->parent && ptr->parent->parent) {
-					if (!buf || buf[0] == 0) buf.sprintf(L"_%s", (wchar_t*)ptr->name);
-					else buf.sprintf(L"_%s_%s", (wchar_t*)ptr->name, (wchar_t*)buf + 1);
+					if (!StrEqual(ptr->name, L"()")) {
+						if (!buf || buf[0] == 0) buf.sprintf(L"_%s", (wchar_t*)ptr->name);
+						else buf.sprintf(L"_%s_%s", (wchar_t*)ptr->name, (wchar_t*)buf + 1);
+					}
 
 					ptr = ptr->parent;
 					if (appendParamValueToFileNames == AppendParamValueToFileNames::parentFolder) break;
@@ -1273,12 +1458,12 @@ Param & FindParam(mVect<Param> & params, const char * pName) {
 	return *FindParam(params, pName, false);
 }
 
-void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aVect<wchar_t> & makeCasesFolder) {
+void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aVect<wchar_t> & makeCasesFolder, bool putAutoParamsAtLeaves) {
 
 	aVect<wchar_t> fileName;
 	mVect<Param> parameters;
 	aVect<char> specialComment("name");
-	parameters = GetParams(aVect<wchar_t>(L"%s\\AutoParams.txt", (wchar_t*)makeCasesFolder), true, specialComment);
+	parameters = GetParams(xFormat(L"%s\\AutoParams.txt", makeCasesFolder), true, specialComment);
 	
 	CreateDirectoryW(tmpCasesFolder, NULL);
 
@@ -1297,34 +1482,47 @@ void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aV
 
 	printf("Done.\n");
 
-	//copy case folder to TMP case folder
-	printf("Copying cases to TMP folder... ");
-	aVect<wchar_t> copyFromStr(L"%s\\*", (wchar_t*)casesFolder);
-	aVect<wchar_t> copyToStr(L"%s", (wchar_t*)tmpCasesFolder);
-	copyFromStr.Grow(1)[wcslen(copyFromStr)+1] = 0; // double null terminate
-	copyToStr.Grow(1)[wcslen(copyToStr)+1] = 0; // double null terminate
-	SHFILEOPSTRUCTW sCopy = { 0 };
-	sCopy.hwnd = NULL;
-	sCopy.wFunc = FO_COPY;
-	sCopy.fFlags = FOF_NOCONFIRMATION /*| FOF_SILENT*/;
-	sCopy.pTo = copyToStr;
-	sCopy.pFrom = copyFromStr;
-	result = SHFileOperationW(&sCopy);
-	if (result) MY_ERROR(xFormat("SHFileOperation copy operation failed with error code : %S", GetWin32ErrorDescription(result)));
+	auto copyCases = [&](const wchar_t * toFolder) {
 
-	printf("Done.\n");
+		printf("Copying cases to TMP folder... ");
+
+		auto copyFromStr = xFormat(L"%s\\*", (wchar_t*)casesFolder);
+		aVect<wchar_t> copyToStr = toFolder;//xFormat(L"%s", (wchar_t*)tmpCasesFolder);
+		copyFromStr.Grow(1)[wcslen(copyFromStr) + 1] = 0; // double null terminate
+		copyToStr.Grow(1)[wcslen(copyToStr) + 1] = 0; // double null terminate
+		SHFILEOPSTRUCTW sCopy = { 0 };
+		sCopy.hwnd = NULL;
+		sCopy.wFunc = FO_COPY;
+		sCopy.fFlags = FOF_NOCONFIRMATION /*| FOF_SILENT*/;
+		sCopy.pTo = copyToStr;
+		sCopy.pFrom = copyFromStr;
+		result = SHFileOperationW(&sCopy);
+		if (result) MY_ERROR(xFormat("SHFileOperation copy operation failed with error code : %S", GetWin32ErrorDescription(result)));
+
+		printf("Done.\n");
+	};
+
+	if (putAutoParamsAtLeaves) {
+		//copy case folder to TMP case folder
+		copyCases(tmpCasesFolder);
+	}
 
 	aVect< aVect<wchar_t> > curFolders, nextCurFolders;
 	aVect< aVect<char> > paramValues, names;
 
 	mVect< mVect<wchar_t> > leafFiles;
-	leafFiles = WalkForwardPathForFile(tmpCasesFolder, aVect<wchar_t>("Params.txt"));
+
+	if (putAutoParamsAtLeaves) {
+		leafFiles = WalkForwardPathForFile(tmpCasesFolder, aVect<wchar_t>("Params.txt"));
+	}
 
 	mVect_static_for(leafFiles, i) {
 		aVect<wchar_t> path;
 		SplitPathW(leafFiles[i], nullptr, &path, nullptr, nullptr);
 		curFolders.Push(path);
 	}
+
+	if (!curFolders) curFolders.Push(tmpCasesFolder);
 
 	//curFolders.Push_ByVal(tmpCasesFolder);
 
@@ -1336,7 +1534,10 @@ void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aV
 		if (parameters[i].comment && parameters[i].comment == strstr(parameters[i].comment, specialComment)) {
 			CharPointer token, remain(parameters[i].comment);
 			token = RetrieveStr<'='>(remain);
-			while(token = RetrieveStr<','>(remain)) names.Push(token.Trim());
+			while (token = RetrieveStr<','>(remain)) {
+				if (StrEqual(token.Trim(), "\"\"")) token = nullptr;
+				names.Push(token);
+			}
 		}
 
 		aVect_static_for(curFolders, j) {
@@ -1344,14 +1545,16 @@ void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aV
 				aVect<wchar_t> folderName;
 				if (k<names.Count()) folderName.Copy(aVect<wchar_t>(names[k]));
 				//if (k<names.Count()) folderName = aVect<char>(names[k]);
-				else  folderName.sprintf(L"%s=%s", (char*)parameters[i].name, (char*)paramValues[k]);
+				else  folderName.sprintf(L"%S=%S", (char*)parameters[i].name, (char*)paramValues[k]);
 
-				nextCurFolders.Push(aVect<wchar_t>(L"%s\\%s", (wchar_t*)curFolders[j], (wchar_t*)folderName));
+				//if (folderName) {
+				nextCurFolders.Push(aVect<wchar_t>(L"%s\\%s", (wchar_t*)curFolders[j], folderName ? (wchar_t*)folderName : L"()"));
 				CreateDirectoryW(nextCurFolders.Last(), NULL);
+				//}
 				WinFile f;
 			
 				if (k<paramValues.Count()) {
-					if (!(f.Open(fileName.sprintf(L"%s\\AutoParams.txt", (wchar_t*)nextCurFolders.Last()), "w"))) MY_ERROR(aVect<char>("\"%S\" introuvable", (wchar_t*)fileName));
+					if (!(f.Open(fileName.Format(L"%s\\AutoParams.txt", nextCurFolders.Last()), "w"))) MY_ERROR(xFormat("\"%S\" introuvable", fileName));
 					f.Write("%s = %s\n", (char*)parameters[i].name, (char*)paramValues[k]);
 				}
 			}
@@ -1360,6 +1563,17 @@ void MakeCases(aVect<wchar_t> & casesFolder, aVect<wchar_t> & tmpCasesFolder, aV
 		paramValues.Redim(0);
 		names.Redim(0);
 	}
+
+	if (!putAutoParamsAtLeaves) {
+		leafFiles = WalkForwardPathForFile(tmpCasesFolder, L"Params.txt", L"AutoParams.txt");
+
+		for (auto&& f : leafFiles) {
+			wchar_t * path;
+			SplitPathW(f.GetDataPtr(), nullptr, &path, nullptr, nullptr);
+			copyCases(path);
+		}
+	}
+
 	printf("Done.\n");
 }
 

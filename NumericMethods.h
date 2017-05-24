@@ -22,6 +22,7 @@ struct Base_Solver {
 	size_t nIter;
 
 	bool isConverged = false;
+	bool getChar = false;
 
 	//AxisClass plot;
 	AxisClass * pPlot;
@@ -66,6 +67,29 @@ struct Base_Solver {
 
 struct SecantMethod_Solver : Base_Solver<SecantMethod_Solver> {
 
+	//horrible hack to shamefully get hybrid_solver working
+	//copy paste of DicotomySolver members
+	//TODO: use proper inheritance
+private:
+	int currentRecursion = 0;
+public:
+
+	int maxRecursion = 5;
+
+	double y_xMin = std::numeric_limits<double>::quiet_NaN();
+	double y_xMax = std::numeric_limits<double>::quiet_NaN();
+
+	aVect<double> * p_pt_x;
+	aVect<double> * p_pt_y;
+	aVect<double> * p_pt_y_target;
+
+	bool tolCheckX_Relative = true;
+	bool tolCheckX = false;
+	double tol_x = 1e-10;
+	// end of shame
+
+
+
 	//double x_init;
 	double relaxFactor1;
 	size_t iterRelaxFactor2;
@@ -104,7 +128,9 @@ struct SecantMethod_Solver : Base_Solver<SecantMethod_Solver> {
 		auto y = function(x, std::forward<Args>(args)...);
 		auto res = y - y_target;
 
-		if (!_finite(y)) return this->SetResults(x, 0, res, false);
+		if (!_finite(y)) {
+			return this->SetResults(x, 0, res, false);
+		}
 
 		if (plotConvergence) {
 			pt_x.Push(x);
@@ -119,13 +145,17 @@ struct SecantMethod_Solver : Base_Solver<SecantMethod_Solver> {
 
 		double y_of_x_plus_dx = function(x + dx, std::forward<Args>(args)...);
 
-		if (!_finite(y_of_x_plus_dx)) return this->SetResults(x + dx, 0, res, false);
+		if (!_finite(y_of_x_plus_dx)) {
+			return this->SetResults(x + dx, 0, res, false);
+		}
 
 		if (plotConvergence) {
 			this->pt_x.Push(x + dx);
 			this->pt_y.Push(y_of_x_plus_dx);
 			this->pt_y_target.Push(y_target);
-			this->pPlot->Create().AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_SOLID, 1, AXIS_MARKER_DIAGCROSS).AddSerie(pt_x, pt_y_target)
+			if (!(*this->pPlot)) this->pPlot->Create();
+			ShowWindow(this->pPlot->hWnd(), SW_SHOW);
+			this->pPlot->AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_SOLID, 1, AXIS_MARKER_DIAGCROSS).AddSerie(pt_x, pt_y_target)
 				      .AutoFit().Refresh();
 		}
 
@@ -133,6 +163,10 @@ struct SecantMethod_Solver : Base_Solver<SecantMethod_Solver> {
 
 			double dy = y_of_x_plus_dx - y;
 			double dres = dy;
+
+			if (dres == 0) {
+				return this->SetResults(x, nIter, res, false);
+			}
 
 			double delta_x = -dx * res / dres;
 
@@ -156,7 +190,9 @@ struct SecantMethod_Solver : Base_Solver<SecantMethod_Solver> {
 			y_of_x_plus_dx = y;
 
 			y = function(x, std::forward<Args>(args)...);
-			if (!_finite(y)) return this->SetResults(x, nIter, res, false);
+			if (!_finite(y)) {
+				return this->SetResults(x, nIter, res, false);
+			}
 
 			if (plotConvergence) {
 				this->pt_x.Push(x);
@@ -164,7 +200,7 @@ struct SecantMethod_Solver : Base_Solver<SecantMethod_Solver> {
 				this->pt_y_target.Push(y_target);
 				this->pPlot->ClearSeries().AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_SOLID, 1, AXIS_MARKER_DIAGCROSS).AddSerie(pt_x, pt_y_target)
 						  .AutoFit().Refresh();
-				getchar();
+				if (this->getChar) getchar();
 			}
 
 			res = y - y_target;
@@ -269,7 +305,7 @@ public:
 			//this->pPlot->AddSerie(*p_pt_x, *p_pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
 			//	.AddSerie(*p_pt_x, *p_pt_y_target)
 			//	.AutoFit().Refresh();
-			//getchar();
+			//if (this->getChar) getchar();
 		}
 
 		for (size_t nIter = 0; nIter < maxIter; nIter++) {
@@ -304,7 +340,7 @@ public:
 					.AddSerie(*p_pt_x, *p_pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
 					.AddSerie(*p_pt_x, *p_pt_y_target)
 					.AutoFit().Refresh();
-				getchar();
+				if (this->getChar) getchar();
 			}
 
 			if (abs(res / (y_target ? y_target : 1)) < tol) {
@@ -450,7 +486,7 @@ struct Naive1D_Solver : Base_Solver < Naive1D_Solver > {
 				this->plot.AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
 					.AddSerie(pt_x, pt_y_target)
 					.AutoFit().Refresh();
-				getchar();
+				if (this->getChar) getchar();
 			}
 
 			x += dx;
@@ -549,7 +585,7 @@ struct Scan1D_Solver : Dicotomy1D_Solver {
 				this->pPlot->AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
 					.AddSerie(pt_x, pt_y_target)
 					.AutoFit().Refresh();
-				getchar();
+				if (this->getChar) getchar();
 			}
 
 			if (signChange) {
@@ -657,7 +693,7 @@ struct Min_Naive_1D_Solver : Base_Solver < Min_Naive_1D_Solver > {
 				this->pt_y.Push(y);
 				this->plot.AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
 					.AutoFit().Refresh();
-				getchar();
+				if (this->getChar) getchar();
 			}
 
 			x += dx;
@@ -1087,7 +1123,7 @@ struct SecantMethod_Solver2 : Base_Solver<SecantMethod_Solver2> {
 				this->pt_y_target.Push(y_target);
 				this->pPlot->ClearSeries().AddSerie(pt_x, pt_y, RGB(0, 0, 255), PS_SOLID, 1, AXIS_MARKER_DIAGCROSS).AddSerie(pt_x, pt_y_target)
 					.AutoFit().Refresh();
-				getchar();
+				if (this->getChar) getchar();
 			}
 
 			if (fastFail) {
@@ -1177,5 +1213,300 @@ struct MonotoneHybrid_Solver : Dicotomy1D_Solver {
 };
 
 
+//just to be able to pass a lambda to Solve instead of a template parameter function
+//ugly copy paste of Dicotomy1D_Solver, to be cleaned up...
+struct Dicotomy1D_Solver2 : Base_Solver<Dicotomy1D_Solver2> {
+
+private:
+	int currentRecursion = 0;
+public:
+
+	int maxRecursion = 5;
+
+	double y_xMin = std::numeric_limits<double>::quiet_NaN();
+	double y_xMax = std::numeric_limits<double>::quiet_NaN();
+
+	aVect<double> * p_pt_x;
+	aVect<double> * p_pt_y;
+	aVect<double> * p_pt_y_target;
+
+	bool tolCheckX_Relative = true;
+	bool tolCheckX = false;
+	double tol_x = 1e-10;
+
+	Dicotomy1D_Solver2(
+		double y_target = 0,
+		double tol = 1e-10,
+		size_t maxIter = 1000,
+		double xMin = -std::numeric_limits<double>::infinity(),
+		double xMax = std::numeric_limits<double>::infinity())
+		:
+		Base_Solver(y_target, tol, maxIter, xMin, xMax)
+	{
+		this->p_pt_x = &this->pt_x;
+		this->p_pt_y = &this->pt_y;
+		this->p_pt_y_target = &this->pt_y_target;
+	}
+
+	bool SetResults(double result, size_t nIter, double residue, bool isConverged) {
+		//if (this->currentRecursion) this->currentRecursion = -1; nonono
+		return Base_Solver::SetResults(result, nIter, residue, isConverged);
+	}
+
+	template <class T, bool plotConvergence = false, bool strict = false, bool failSafe = false, class... Args >
+	bool Solve(T & function, Args&&... args) {
+
+		auto y_target = this->y_target;
+		auto tol = this->tol;
+		auto maxIter = this->maxIter;
+		double x1 = this->xMin;
+		double x2 = this->xMax;
+
+		if (plotConvergence && !(*this->pPlot)) this->pPlot->Create();
+
+		double y1;
+		double y2;
+
+		if (failSafe) {
+			try {
+				y1 = _finite(this->y_xMin) ? this->y_xMin : function(x1, std::forward<Args>(args)...);
+			}
+			catch (const std::runtime_error & e) {
+				e;//happy compiler
+				y1 = std::numeric_limits<double>::quiet_NaN();
+			}
+		}
+		else {
+			y1 = _finite(this->y_xMin) ? this->y_xMin : function(x1, std::forward<Args>(args)...);
+		}
+
+		if (failSafe) {
+			try {
+				y2 = _finite(this->y_xMax) ? this->y_xMax : function(x2, std::forward<Args>(args)...);
+			}
+			catch (const std::runtime_error & e) {
+				e;//happy compiler
+				y2 = std::numeric_limits<double>::quiet_NaN();
+			}
+		}
+		else {
+			y2 = _finite(this->y_xMax) ? this->y_xMax : function(x2, std::forward<Args>(args)...);
+		}
+
+		double x = std::numeric_limits<double>::quiet_NaN();
+		double res = std::numeric_limits<double>::infinity();
+
+		if (plotConvergence) {
+			this->p_pt_x->Push(x1).Push(x2);
+			this->p_pt_y->Push(y1).Push(y2);
+			this->p_pt_y_target->Push(y_target).Push(y_target);
+			//this->pPlot->AddSerie(*p_pt_x, *p_pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
+			//	.AddSerie(*p_pt_x, *p_pt_y_target)
+			//	.AutoFit().Refresh();
+			//if (this->getChar) getchar();
+		}
+
+		for (size_t nIter = 0; nIter < maxIter; nIter++) {
+
+			auto x_mid = 0.5 * (x1 + x2);
+			auto old_x = x;
+			x = x_mid;
+
+			double y_mid;
+
+			if (failSafe) {
+				try {
+					y_mid = function(x_mid, std::forward<Args>(args)...);
+				}
+				catch (const std::runtime_error & e) {
+					e;//happy compiler
+					y_mid = std::numeric_limits<double>::quiet_NaN();
+				}
+			}
+			else {
+				y_mid = function(x_mid, std::forward<Args>(args)...);
+			}
+
+			if (failSafe && (!_finite(y1) || !_finite(y2) || !_finite(y_mid))) return this->SetResults(x1, 0, std::numeric_limits<double>::quiet_NaN(), false);
+
+			res = y_target - y_mid;
+
+			if (plotConvergence) {
+				this->p_pt_x->Push(x_mid);
+				this->p_pt_y->Push(y_mid);
+				this->p_pt_y_target->Push(y_target);
+				if (!(*this->pPlot)) this->pPlot->Create();
+				ShowWindow(this->pPlot->hWnd(), SW_SHOW);
+				this->pPlot->ClearSeries()
+					.AddSerie(*p_pt_x, *p_pt_y, RGB(0, 0, 255), PS_NULL, 1, AXIS_MARKER_DIAGCROSS)
+					.AddSerie(*p_pt_x, *p_pt_y_target)
+					.AutoFit().Refresh();
+				if (this->getChar) getchar();
+			}
+
+			if (abs(res / (y_target ? y_target : 1)) < tol) {
+				bool ok = true;
+				if (this->tolCheckX) {
+					auto v = abs(old_x - x);
+					if (this->tolCheckX_Relative) {
+						v /= x;
+					}
+					if (!(v < tol)) ok = false;
+				}
+				if (ok) return this->SetResults(x_mid, nIter, res, true);
+			}
+
+			bool inFirst = std::signbit(y_target - y1) != std::signbit(res);
+			bool inSecond = std::signbit(y_target - y2) != std::signbit(res);
+			bool nowhere = !inFirst && !inSecond;
+
+			if (nowhere) {
+				auto maxRecursion = this->maxRecursion == -1 ? 5 : this->maxRecursion;
+				if (this->currentRecursion >= maxRecursion) {
+					return this->SetResults(x, nIter, res, false);
+				}
+				else {
+					//if (this->currentRecursion == -1) {
+					//	//for (int i = 1; i < 20; ++i) {
+					//		//this->recurse = i;
+					//	this->currentRecursion = 5;
+					//	if (this->Solve<T, function, plotConvergence, strict, failSafe>(std::forward<Args>(args)...)) return true;
+					//	//}
+					//} else {
+					//if (this->currentRecursion) {
+
+					Dicotomy1D_Solver2 first, second;
+					first.maxIter = second.maxIter = maxIter;
+					first.tol = second.tol = tol;
+					first.tol_x = second.tol_x = this->tol_x;
+					first.tolCheckX = second.tolCheckX = this->tolCheckX;
+					first.tolCheckX_Relative = second.tolCheckX_Relative = this->tolCheckX_Relative;
+					first.y_target = second.y_target = y_target;
+					first.p_pt_x = second.p_pt_x = this->p_pt_x;
+					first.p_pt_y = second.p_pt_y = this->p_pt_y;
+					first.pPlot = second.pPlot = this->pPlot;
+					first.xMin = x1;
+					first.y_xMin = y1;
+					first.xMax = second.xMin = x_mid;
+					first.y_xMax = second.y_xMin = y_mid;
+					second.xMax = x2;
+					second.y_xMax = y2;
+					first.p_pt_y_target = second.p_pt_y_target = this->p_pt_y_target;
+					first.maxRecursion = second.maxRecursion = this->maxRecursion;
+
+					first.currentRecursion = second.currentRecursion = this->currentRecursion + 1;
+					if (first.Solve<T, plotConvergence, strict, failSafe>(function, std::forward<Args>(args)...)) {
+						return this->SetResults(first.result, first.nIter, first.residue, first.isConverged);
+					}
+					if (second.Solve<T, plotConvergence, strict, failSafe>(function, std::forward<Args>(args)...)) {
+						return this->SetResults(second.result, second.nIter, second.residue, second.isConverged);
+					}
+					//	}
+					//}
+
+					return this->SetResults(x_mid, nIter, res, false);
+				}
+			}
+
+			if (inFirst) {
+				x2 = x_mid;
+				y2 = y_mid;
+			}
+			else {
+				x1 = x_mid;
+				y1 = y_mid;
+			}
+
+			if (!strict && IsEqualWithPrec(x1, x2, tol)) {
+				return this->SetResults(x, nIter, res, true);
+			}
+		}
+
+		return this->SetResults(x, maxIter, res, false);
+	}
+};
+
+
+//just to be able to pass a lambda to Solve instead of a template parameter function
+//ugly copy paste of Dicotomy1D_Solver, to be cleaned up...
+struct MonotoneHybrid_Solver2 : Dicotomy1D_Solver {
+
+	//horrible hack to shamefully get hybrid_solver working
+	//copy paste of HybridSolver members
+	//TODO: use proper inheritance
+	double relaxFactor1;
+	size_t iterRelaxFactor2;
+	double relaxFactor2;
+	//end of shame
+
+	MonotoneHybrid_Solver2(
+		double y_target = 0,
+		double x_init = 0,
+		double tol = 1e-10,
+		size_t maxIter = 1000,
+		double xMin = -std::numeric_limits<double>::infinity(),
+		double xMax = std::numeric_limits<double>::infinity(),
+		double relaxFactor1 = 1,
+		size_t iterRelaxFactor2 = 100,
+		double relaxFactor2 = 0.1)
+		:
+		Dicotomy1D_Solver(y_target, tol, maxIter, xMin, xMax), relaxFactor1(relaxFactor1), iterRelaxFactor2(iterRelaxFactor2), relaxFactor2(relaxFactor2)
+	{
+		this->xInit = x_init;
+		this->maxRecursion = 0;
+	}
+
+	template <bool plotConvergence = false, bool failSafe = false, class T, class... Args >
+	bool Solve(T& function, Args&&... args) {
+
+		auto secantSolver = (SecantMethod_Solver*)this;
+
+		bool ok = false;
+		if (failSafe) {
+			try {
+				ok = secantSolver->Solve<plotConvergence>(function, std::forward<Args>(args)...);
+			}
+			catch (const std::runtime_error &) {
+				/*do nothing*/
+			}
+		}
+		else {
+			ok = secantSolver->Solve<plotConvergence>(function, std::forward<Args>(args)...);
+		}
+
+		if (ok) {
+			return true;
+		}
+		else {
+			auto dicotomySolver = (Dicotomy1D_Solver2*)this;
+			auto nIter = dicotomySolver->nIter;
+			auto maxIter = dicotomySolver->maxIter;
+			dicotomySolver->maxIter = maxIter - nIter;
+			//auto oldMaxRecursion = dicotomySolver->maxRecursion;
+			//dicotomySolver->maxRecursion = -1;
+			auto retVal = dicotomySolver->Solve<T, plotConvergence, true, failSafe>(function, std::forward<Args>(args)...);
+			//dicotomySolver->maxRecursion = oldMaxRecursion;
+			dicotomySolver->nIter += nIter;
+
+			//if (!retVal) {
+			//	auto d = dicotomySolver->xMax - dicotomySolver->xMin;
+			//	auto old_xMin = dicotomySolver->xMin;
+			//	auto old_xMax = dicotomySolver->xMax;
+			//	dicotomySolver->xMin -= d / 2;
+			//	dicotomySolver->xMax += d / 2;
+			//	//oldMaxRecursion = dicotomySolver->maxRecursion;
+			//	//dicotomySolver->maxRecursion = -1;
+			//	retVal = dicotomySolver->Solve<T, plotConvergence, true, failSafe>(function, std::forward<Args>(args)...);
+			//	//dicotomySolver->maxRecursion = oldMaxRecursion;
+			//	dicotomySolver->nIter += nIter;
+			//	dicotomySolver->xMin = old_xMin;
+			//	dicotomySolver->xMax = old_xMax;
+			//}
+
+			dicotomySolver->maxIter = maxIter;
+			return retVal;
+		}
+	}
+};
 #endif
 
