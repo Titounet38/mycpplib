@@ -705,7 +705,7 @@ public:
 		aVect<wchar_t> buffer;
 
 		if (tmpWrite) {
-			if (!filePaths) MY_ERROR("Aucun fichier n'a été spécifié");
+			if (!filePaths) MY_ERROR("Aucun fichier n'a Ã©tÃ© spÃ©cifiÃ©");
 			Open();
 		}
 
@@ -1266,7 +1266,7 @@ inline int IsDigit(char str) {
 }
 
 inline int IsAlpha(char str) {
-	if (str == 'µ' || str == '°') return true;
+	if (str == 'Âµ' || str == 'Â°') return true;
 	return isalpha((unsigned char)str);
 }
 
