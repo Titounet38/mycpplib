@@ -1255,8 +1255,8 @@ double GetValueInUnit(CharPointer & line, const char * unitTo) {
 
 		auto unitFrom = RetrieveStr<' ', '=', ','>(line);
 
-		if (strcmp_caseInsensitive(unitFrom, "C") == 0) unitFrom = "\B0C";
-		if (strcmp_caseInsensitive(unitFrom, "F") == 0) unitFrom = "\B0F";
+		if (strcmp_caseInsensitive(unitFrom, "C") == 0) unitFrom = "°C";
+		if (strcmp_caseInsensitive(unitFrom, "F") == 0) unitFrom = "°F";
 
 		//ReplaceStr(unitFrom, "SM3", "sm3");
 
@@ -1465,7 +1465,7 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format2(const wchar_t * fileName) {
 	PushNumbers(nullptr, nTemperaturePoints, line, file);
 	 
 	table.P_unit = "Pa";
-	table.T_unit = "\B0C";
+	table.T_unit = "°C";
 
 	const aVect<PVTVarNames> varNames = { 
 		PVTVarNames("GAS DENSITY",						"ROG"),
@@ -1588,7 +1588,7 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format1(const wchar_t * fileName) {
 		if (!tok) break;
 
 		if      (0 == strcmp_caseInsensitive(tok, "STDPRESSURE"))    table.stdPressure     = GetValueInUnit(line, "bar");
-		else if (0 == strcmp_caseInsensitive(tok, "STDTEMPERATURE")) table.stdTemperature  = GetValueInUnit(line, "\B0C");
+		else if (0 == strcmp_caseInsensitive(tok, "STDTEMPERATURE")) table.stdTemperature  = GetValueInUnit(line, "°C");
 		else if (0 == strcmp_caseInsensitive(tok, "GOR"))            table.GOR			   = GetValueInUnit(line, "sm3/sm3");
 		else if (0 == strcmp_caseInsensitive(tok, "GLR"))            table.GLR			   = GetValueInUnit(line, "sm3/sm3");
 		else if (0 == strcmp_caseInsensitive(tok, "WC"))             table.WC			   = GetValueInUnit(line, nullptr);
@@ -1614,7 +1614,7 @@ Olga_PVT_Table Olga_Read_PVT_Table_Format1(const wchar_t * fileName) {
 
 			tok = RetrieveStr<','>(line).Trim();
 			if (!tok) return PVT_ReadError(file, "unexpected end of line while searching for temperature unit");
-			table.T_unit.Copy(tok).Prepend("\B0");
+			table.T_unit.Copy(tok).Prepend("°");
 		}
 		else  if (0 == strcmp_caseInsensitive(tok, "COLUMNS")) {
 			if (!Read_PVT_List(list, file, line, nullptr, true))  MY_ERROR("PVT file read error");

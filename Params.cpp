@@ -914,7 +914,7 @@ void WriteParams(aVect<wchar_t> & fileName, const aVect<Param> & params) {
 	WinFile f(fileName, "w");
 
 	if (!f.Open()) {
-		MY_ERROR(aVect<char>("Impossible de cr\E9er le fichier %S.", (wchar_t*)fileName));
+		MY_ERROR(aVect<char>("Unable to create file %S.", (wchar_t*)fileName));
 	}
 
 	WriteParamsCore(f, params);
@@ -1002,7 +1002,7 @@ aVect<wchar_t> WriteInstanceFromTemplate(
     WinFile output(instanceFile, "w");
 
     if (!input.Open())  MY_ERROR("Fichier template introuvable");
-    if (!output.Open()) MY_ERROR("Impossible de cr\E9er le fichier d'instance");
+    if (!output.Open()) MY_ERROR("Unable to create instance file");
 
     CharPointer line, token;
     aVect<char> lineToWrite, blanks;

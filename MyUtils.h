@@ -6,6 +6,7 @@
 #include "ctype.h"
 #include <limits>
 #include "xVect.h"
+#include <algorithm>
 
 #ifdef SIMULATE_NO_WIN32
 #define _WIN32_BKP   _WIN32

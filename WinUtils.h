@@ -642,7 +642,7 @@ public:
 
 	aVectEx& CreateCriticalSection(unsigned int spinCount = 0) {
 
-		if (pCs) MY_ERROR("Non impl\E9ment\E9");
+		if (pCs) MY_ERROR("Not implemented");
 		pCs = (CRITICAL_SECTION *)HeapAlloc(heap, 0, sizeof *pCs);
 		if (!pCs) MY_ERROR("HeapAlloc failed");
 		InitializeCriticalSectionAndSpinCount(pCs, spinCount);

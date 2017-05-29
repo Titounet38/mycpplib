@@ -1319,7 +1319,7 @@ HWND PutThere(HWND hParent, const wchar_t * className, const wchar_t * str, int 
 			g_wpOrigStaticProc = (WNDPROC)SetWindowLongPtrW(hRet, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
 		}
 		else {
-			if (g_wpOrigStaticProc != (WNDPROC)SetWindowLongPtrW(hRet, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc)) MY_ERROR("ici l\E0");
+			if (g_wpOrigStaticProc != (WNDPROC)SetWindowLongPtrW(hRet, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc)) MY_ASSERT(false);
 		}
 	}
 	else if (_wcsicmp(className, L"ComboBox") == 0)  {
